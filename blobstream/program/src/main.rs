@@ -15,6 +15,7 @@ type DataRootTuple = sol! {
 };
 
 fn main() {
+    println!("cycle-tracker-start: reading inputs");
     let trusted_block_height = sp1_zkvm::io::read::<u64>();
     let target_block_height = sp1_zkvm::io::read::<u64>();
     // TODO: We should probably just read in the LightBlock's for the start and end and the headers
@@ -25,6 +26,7 @@ fn main() {
         let encoded_light_block = sp1_zkvm::io::read_vec();
         encoded_light_blocks.push(encoded_light_block)
     }
+    println!("cycle-tracker-end: reading inputs");
 
     // Decode the light blocks.
     let mut light_blocks: Vec<LightBlock> = Vec::new();
