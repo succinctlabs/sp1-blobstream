@@ -1176,6 +1176,7 @@ dependencies = [
  "clap",
  "dotenv",
  "ethers",
+ "futures",
  "hex",
  "itertools 0.12.1",
  "log",

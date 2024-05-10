@@ -1,5 +1,5 @@
+use blobstream_script::TendermintProver;
 use clap::Parser;
-use blobstream-script::TendermintProver;
 use tokio::runtime;
 
 #[derive(Parser, Debug)]
@@ -12,6 +12,26 @@ struct ScriptArgs {
     /// Target block.
     #[clap(long, env)]
     target_block: u64,
+}
+
+pub async fn get_data_commitment(start_block: u64, end_block: u64) {
+    // If start_block == end_block, then return a dummy commitment.
+    // This will occur in the context of data commitment's map reduce when leaves that contain blocks beyond the end_block.
+
+    let route = format!(
+        "data_commitment?start={}&end={}",
+        start_block.to_string().as_str(),
+        end_block.to_string().as_str()
+    );
+
+    let url = format!(
+        "{}/{}",
+        "http://consensus-full-mocha-4.celestia-mocha.com:26657", route
+    );
+
+    let mut res = reqwest::get(url.clone()).await;
+
+    println!("Data Commitment Response: {:?}", res.unwrap())
 }
 
 /// Generate a proof between the given trusted and target blocks.
@@ -32,22 +52,26 @@ fn main() -> anyhow::Result<()> {
     // Fetch the stdin for the proof.
     let stdin = rt.block_on(async {
         prover
-            .fetch_input_for_header_update_proof(args.trusted_block, args.target_block)
+            .fetch_input_for_blobstream_proof(args.trusted_block, args.target_block)
             .await
     });
 
     // Generate the proof. Depending on SP1_PROVER env, this may be a local or network proof.
     let proof = prover
         .prover_client
-        .prove_groth16(&prover.pkey, stdin)
+        .prove(&prover.pkey, stdin)
         .expect("proving failed");
     println!("Successfully generated proof!");
 
-    // Verify proof.
-    prover
-        .prover_client
-        .verify_groth16(&proof, &prover.vkey)
-        .expect("Verification failed");
+    let public_values = proof.public_values.as_ref();
+    let data_commitment = public_values[64..96].to_vec();
+    println!("Data commitment: {:?}", hex::encode(data_commitment));
+
+    // // // Verify proof.
+    // prover
+    //     .prover_client
+    //     .verify_groth16(&proof, &prover.vkey)
+    //     .expect("Verification failed");
 
     Ok(())
 }

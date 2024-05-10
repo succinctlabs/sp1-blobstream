@@ -31,5 +31,6 @@ clap = { version = "4.0", features = ["derive", "env"] }
 log = "0.4.21"
 async-trait = "0.1.80"
 hex = "0.4.3"
+futures = "0.3.30"
 [build-dependencies]
 sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", rev = "v1.0.0-testnet" }

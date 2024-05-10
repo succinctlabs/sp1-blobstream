@@ -90,6 +90,32 @@ impl TendermintProver {
         stdin
     }
 
+    // Fetch the inputs for a Blobstream proof.
+    pub async fn fetch_input_for_blobstream_proof(
+        &self,
+        trusted_block_height: u64,
+        target_block_height: u64,
+    ) -> SP1Stdin {
+        let tendermint_client = TendermintRPCClient::default();
+        let light_blocks = tendermint_client
+            .fetch_light_blocks_in_range(trusted_block_height, target_block_height)
+            .await;
+
+        let mut stdin = SP1Stdin::new();
+
+        stdin.write(&trusted_block_height);
+        stdin.write(&target_block_height);
+
+        // Encode the light blocks to be input into our program.
+        // Write the encoded light blocks to stdin.
+        for light_block in light_blocks {
+            let encoded = serde_cbor::to_vec(&light_block).unwrap();
+            stdin.write_vec(encoded);
+        }
+
+        stdin
+    }
+
     /// Generate a proof of an update from trusted_light_block to target_light_block. Returns the
     /// public values and proof of the update.
     pub async fn generate_header_update_proof(

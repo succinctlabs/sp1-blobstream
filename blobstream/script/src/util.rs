@@ -27,6 +27,24 @@ impl TendermintRPCClient {
         TendermintRPCClient { url }
     }
 
+    pub async fn fetch_light_blocks_in_range(
+        &self,
+        start_height: u64,
+        end_height: u64,
+    ) -> Vec<LightBlock> {
+        let peer_id = self.fetch_peer_id().await.unwrap();
+
+        let mut handles = Vec::new();
+        for height in start_height..=end_height {
+            let fetch_light_block =
+                async move { self.fetch_light_block(height, peer_id).await.unwrap() };
+            handles.push(fetch_light_block);
+        }
+
+        // Join all the futures
+        futures::future::join_all(handles).await
+    }
+
     /// Retrieves light blocks for the trusted and target block heights.
     pub async fn get_light_blocks(
         &self,
