@@ -6,5 +6,5 @@
 Add `TENDERMINT_RPC_URL` to `.env` in script, and also add `SP1_PROVER` config. For fast development, set `SP1_PROVER` to mock.
 
 ```bash
-RUST_LOG=info cargo run --release -- --trusted-block 10 --target-block 50
+RUST_LOG=debug cargo run --package blobstream-script --bin run --release -- --trusted-block 10 --target-block 50
 ```
