@@ -14,6 +14,11 @@ type DataRootTuple = sol! {
     tuple(uint64, bytes32)
 };
 
+// # 95M reading inputs
+// # 5M for verify
+// # 37k for hash header (could be cheaper by opening merkle commitments) -> 36M
+// # 100k for data commitment computation -> 2.5M
+
 fn main() {
     println!("cycle-tracker-start: reading inputs");
     let trusted_block_height = sp1_zkvm::io::read::<u64>();
@@ -26,7 +31,6 @@ fn main() {
         let encoded_light_block = sp1_zkvm::io::read_vec();
         encoded_light_blocks.push(encoded_light_block)
     }
-    println!("cycle-tracker-end: reading inputs");
 
     // Decode the light blocks.
     let mut light_blocks: Vec<LightBlock> = Vec::new();
@@ -35,9 +39,11 @@ fn main() {
         light_blocks.push(light_block);
     }
 
+    println!("cycle-tracker-end: reading inputs");
+
     let trusted_block = &light_blocks[0];
     let target_block = &light_blocks[(target_block_height - trusted_block_height) as usize];
-
+    println!("cycle-tracker-start: verify");
     let vp = ProdVerifier::default();
     let opt = Options {
         trust_threshold: Default::default(),
@@ -60,11 +66,14 @@ fn main() {
         }
         v => panic!("Could not verify updating to target_block, error: {:?}", v),
     }
+    println!("cycle-tracker-end: verify");
 
     let mut encoded_data_root_tuples: Vec<Vec<u8>> = Vec::new();
     for i in 1..=(target_block_height - trusted_block_height) as usize {
+        println!("cycle-tracker-start: header_hash");
         let prev_light_block = &light_blocks[i - 1];
         let curr_light_block = &light_blocks[i];
+        // Checks that chain of headers is well-formed.
         if prev_light_block.signed_header.header.hash()
             != curr_light_block
                 .signed_header
@@ -75,7 +84,9 @@ fn main() {
         {
             panic!("invalid light block");
         }
+        println!("cycle-tracker-end: header_hash");
 
+        println!("cycle-tracker-start: data_hash");
         let data_hash: [u8; 32] = prev_light_block
             .signed_header
             .header
@@ -84,12 +95,15 @@ fn main() {
             .as_bytes()
             .try_into()
             .unwrap();
+        println!("cycle-tracker-end: data_hash");
         let data_root_tuple =
             DataRootTuple::abi_encode(&(prev_light_block.height().value(), data_hash));
         encoded_data_root_tuples.push(data_root_tuple);
     }
 
+    println!("cycle-tracker-start: data_commitment");
     let data_commitment = simple_hash_from_byte_vectors::<Sha256>(&encoded_data_root_tuples);
+    println!("cycle-tracker-end: data_commitment");
 
     // Now that we have verified our proof, we commit the header hashes to the zkVM to expose
     // them as public values.
