@@ -9,6 +9,7 @@ use tendermint::{
     validator::{Info, Set},
 };
 use tendermint_light_client_verifier::types::{LightBlock, ValidatorSet};
+use alloy_primitives::B256;
 
 pub struct TendermintRPCClient {
     url: String,
@@ -237,5 +238,18 @@ impl TendermintRPCClient {
             next_validators,
             Id::new(peer_id),
         ))
+    }
+
+    /// Fetches a header hash for a specific block height.
+    pub async fn fetch_header_hash(&self, block_height: u64) -> B256 {
+        let peer_id = self.fetch_peer_id().await.unwrap();
+        let light_block = self.fetch_light_block(
+            block_height,
+            peer_id,
+        )
+        .await
+        .unwrap();
+
+        B256::from_slice(light_block.signed_header.header.hash().as_bytes())
     }
 }

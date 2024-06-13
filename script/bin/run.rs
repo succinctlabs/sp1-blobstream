@@ -1,6 +1,8 @@
 use blobstream_script::TendermintProver;
 use clap::Parser;
 use tokio::runtime;
+use primitives::types::ProofOutputs;
+use alloy_sol_types::SolType;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -29,7 +31,7 @@ pub async fn get_data_commitment(start_block: u64, end_block: u64) {
         "http://consensus-full-mocha-4.celestia-mocha.com:26657", route
     );
 
-    let mut res = reqwest::get(url.clone()).await;
+    let res = reqwest::get(url.clone()).await;
 
     println!("Data Commitment Response: {:?}", res.unwrap())
 }
@@ -59,19 +61,19 @@ fn main() -> anyhow::Result<()> {
     // Generate the proof. Depending on SP1_PROVER env, this may be a local or network proof.
     let proof = prover
         .prover_client
-        .prove(&prover.pkey, stdin)
+        .prove_plonk(&prover.pkey, stdin)
         .expect("proving failed");
     println!("Successfully generated proof!");
 
     let public_values = proof.public_values.as_ref();
-    let data_commitment = public_values[64..96].to_vec();
-    println!("Data commitment: {:?}", hex::encode(data_commitment));
+    let _outputs = ProofOutputs::abi_decode(public_values, true).unwrap();
+    println!("Proof output: {}", hex::encode(public_values));
 
-    // // // Verify proof.
-    // prover
-    //     .prover_client
-    //     .verify_groth16(&proof, &prover.vkey)
-    //     .expect("Verification failed");
+    // Verify proof.
+    prover
+        .prover_client
+        .verify_plonk(&proof, &prover.vkey)
+        .expect("Verification failed");
 
     Ok(())
 }

@@ -6,10 +6,10 @@ use core::time::Duration;
 use tendermint_light_client_verifier::{
     options::Options, types::LightBlock, ProdVerifier, Verdict, Verifier,
 };
-
 use sha2::Sha256;
 use tendermint::merkle::simple_hash_from_byte_vectors;
-
+use primitives::types::ProofOutputs;
+use alloy_primitives::B256;
 type DataRootTuple = sol! {
     tuple(uint64, bytes32)
 };
@@ -117,14 +117,14 @@ fn main() {
     }
     println!("cycle-tracker-end: verify");
 
-    let data_commitment = compute_data_commitment(&light_blocks);
+    let data_commitment = B256::from_slice(&compute_data_commitment(&light_blocks));
 
     // Now that we have verified our proof, we commit the header hashes to the zkVM to expose
     // them as public values.
-    let trusted_header_hash = trusted_block.signed_header.header.hash();
-    let target_header_hash = target_block.signed_header.header.hash();
+    let trusted_header_hash = B256::from_slice(trusted_block.signed_header.header.hash().as_bytes());
+    let target_header_hash  = B256::from_slice(target_block.signed_header.header.hash().as_bytes());
 
-    sp1_zkvm::io::commit_slice(trusted_header_hash.as_bytes());
-    sp1_zkvm::io::commit_slice(target_header_hash.as_bytes());
-    sp1_zkvm::io::commit_slice(&data_commitment);
+    // ABI-Encode Proof Outputs
+    let proof_outputs = ProofOutputs::abi_encode(&(trusted_header_hash, target_header_hash, data_commitment, trusted_block_height, target_block_height));
+    sp1_zkvm::io::commit_slice(&proof_outputs);
 }

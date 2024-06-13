@@ -1,4 +1,4 @@
 [workspace]
 exclude = ["program"]
-members = ["script"]
+members = [ "primitives", "script"]
 resolver = "2"

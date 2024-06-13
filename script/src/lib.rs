@@ -1,10 +1,10 @@
-// TODO: import from sp1_sdk when these are public in the future
 use crate::util::TendermintRPCClient;
-use sp1_sdk::{ProverClient, SP1Groth16Proof, SP1ProvingKey, SP1Stdin, SP1VerifyingKey};
+use sp1_sdk::{PlonkBn254Proof, ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey};
 use tendermint_light_client_verifier::types::LightBlock;
 
 mod types;
 pub mod util;
+pub mod contract;
 
 // The path to the ELF file for the Succinct zkVM program.
 pub const TENDERMINT_ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
@@ -39,7 +39,7 @@ impl TendermintProver {
     pub async fn generate_header_update_proof_to_latest_block(
         &self,
         trusted_header_hash: &[u8],
-    ) -> SP1Groth16Proof {
+    ) -> SP1ProofWithPublicValues<PlonkBn254Proof> {
         let tendermint_client = TendermintRPCClient::default();
         let latest_block_height = tendermint_client.get_latest_block_height().await;
 
@@ -60,7 +60,7 @@ impl TendermintProver {
         &self,
         trusted_block_height: u64,
         target_block_height: u64,
-    ) -> SP1Groth16Proof {
+    ) -> SP1ProofWithPublicValues<PlonkBn254Proof> {
         let tendermint_client = TendermintRPCClient::default();
         let (trusted_light_block, target_light_block) = tendermint_client
             .get_light_blocks(trusted_block_height, target_block_height)
@@ -122,7 +122,7 @@ impl TendermintProver {
         &self,
         trusted_light_block: &LightBlock,
         target_light_block: &LightBlock,
-    ) -> SP1Groth16Proof {
+    ) -> SP1ProofWithPublicValues<PlonkBn254Proof> {
         log::info!(
             "Generating proof for blocks {} to {}",
             trusted_light_block.height(),
@@ -140,13 +140,13 @@ impl TendermintProver {
         // Generate the proof. Depending on SP1_PROVER env, this may be a local or network proof.
         let proof = self
             .prover_client
-            .prove_groth16(&self.pkey, stdin)
+            .prove_plonk(&self.pkey, stdin)
             .expect("proving failed");
         println!("Successfully generated proof!");
 
         // Verify proof.
         self.prover_client
-            .verify_groth16(&proof, &self.vkey)
+            .verify_plonk(&proof, &self.vkey)
             .expect("Verification failed");
 
         // Return the proof.

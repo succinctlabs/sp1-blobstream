@@ -3,6 +3,11 @@
     "[rust]": {
         "editor.defaultFormatter": "rust-lang.rust-analyzer",
     },
+    "editor.formatOnSave": true,
+    "[solidity]": {
+    "editor.defaultFormatter": "JuanBlanco.solidity"
+},
+"solidity.formatter": "forge",
     "editor.rulers": [
         100
     ],

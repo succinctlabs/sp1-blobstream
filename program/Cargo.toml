@@ -1,11 +1,11 @@
-[workspace]
 [package]
 version = "0.1.0"
 name = "blobstream-program"
 edition = "2021"
 
 [dependencies]
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "v1.0.0-testnet" }
+primitives = { path = "../primitives" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "v1.0.5-testnet" }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 tendermint-light-client-verifier = { version = "0.35.0", default-features = false, features = [
@@ -15,6 +15,7 @@ tendermint = "0.36.0"
 sha2 = "0.10"
 serde_cbor = "0.11.2"
 alloy-sol-types = "0.7.2"
+alloy-primitives = "0.7.6"
 
 [patch.crates-io]
 sha2-v0-9-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.9.8" }
