@@ -5,7 +5,6 @@ import "forge-std/Script.sol";
 import {BlobstreamX} from "../src/BlobstreamX.sol";
 import {ERC1967Proxy} from "@openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import {SP1Verifier} from "@sp1-contracts/SP1Verifier.sol";
-import {SP1MockVerifier} from "@sp1-contracts/SP1MockVerifier.sol";
 
 contract DeployScript is Script {
     function setUp() public {}
@@ -18,7 +17,7 @@ contract DeployScript is Script {
         if (vm.envBool("DEPLOY")) {
             // Deploy Verifier
             // TODO: Detect SP1_PROVER=mock and use a mock verifier if specified.
-            SP1MockVerifier verifier = new SP1MockVerifier();
+            SP1Verifier verifier = new SP1Verifier();
 
             // Deploy contract
             BlobstreamX lightClientImpl = new BlobstreamX{

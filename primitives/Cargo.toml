@@ -4,4 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-alloy-sol-types = "0.7.2"
+alloy-sol-types = "0.7.6"
+tendermint = { version = "0.35.0", default-features = false }
+tendermint-light-client-verifier = { version = "0.35.0", default-features = false, features = [
+    "rust-crypto",
+] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }

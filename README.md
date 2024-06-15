@@ -12,7 +12,6 @@ Implementation of [Blobstream X](https://github.com/succinctlabs/blobstreamx) in
     original BlobstreamX implementation in case we need to upgrade.
 
 
-
 ## Run the BlobstreamX Light Client
 Update the root folder `.env` following `.env.example`
 
@@ -35,7 +34,7 @@ forge install
 
 source .env
 
-forge script script/BlobstreamX.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY --broadcast --verify
+forge script script/Deploy.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY --broadcast --verify
 ```
 
 Update `.env` following `.env.example`.
@@ -48,7 +47,3 @@ cd script
 
 cargo run --bin operator --release
 ```
-
-## Optimizations
-1. Is there a more efficient way to serialize the LightBlocks? We should do some testing to see how many cycles reading the input takes. If we only send in the Headers, rather than the LightBlocks this will be more lightweight.
-2. Are the patches working correctly, especially for the Merkle Tree computation?

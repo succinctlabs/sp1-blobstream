@@ -1,15 +1,17 @@
 #![allow(dead_code)]
 use crate::types::*;
+use alloy_primitives::B256;
 use reqwest::Client;
 use std::{collections::HashMap, env, error::Error};
 use subtle_encoding::hex;
+use tendermint::block::Commit;
+use tendermint::validator::Set as TendermintValidatorSet;
 use tendermint::{
     block::signed_header::SignedHeader,
     node::Id,
     validator::{Info, Set},
 };
 use tendermint_light_client_verifier::types::{LightBlock, ValidatorSet};
-use alloy_primitives::B256;
 
 pub struct TendermintRPCClient {
     url: String,
@@ -28,22 +30,62 @@ impl TendermintRPCClient {
         TendermintRPCClient { url }
     }
 
+    // Search to find the highest block number to call request_combined_skip on. If the search
+    // returns start_block + 1, then we call request_combined_step instead.
+    pub async fn find_block_to_request(&mut self, start_block: u64, max_end_block: u64) -> u64 {
+        let mut curr_end_block = max_end_block;
+        loop {
+            if curr_end_block - start_block == 1 {
+                return curr_end_block;
+            }
+            let start_block_validators = self.fetch_validators(start_block).await.unwrap();
+            let start_validator_set = Set::new(start_block_validators, None);
+            let target_block_validators = self.fetch_validators(curr_end_block).await.unwrap();
+            let target_validator_set = Set::new(target_block_validators, None);
+            let target_block_commit = self.fetch_commit(curr_end_block).await.unwrap();
+            if Self::is_valid_skip(
+                start_validator_set,
+                target_validator_set,
+                target_block_commit.result.signed_header.commit,
+            ) {
+                return curr_end_block;
+            }
+            let mid_block = (curr_end_block + start_block) / 2;
+            curr_end_block = mid_block;
+        }
+    }
+
+    /// Fetches all light blocks for the given range of block heights. Inclusive of start and end.
     pub async fn fetch_light_blocks_in_range(
         &self,
         start_height: u64,
         end_height: u64,
     ) -> Vec<LightBlock> {
         let peer_id = self.fetch_peer_id().await.unwrap();
+        let batch_size = 25;
+        let mut blocks = Vec::new();
+        println!(
+            "Fetching light blocks in range: {} to {}",
+            start_height, end_height
+        );
 
-        let mut handles = Vec::new();
-        for height in start_height..=end_height {
-            let fetch_light_block =
-                async move { self.fetch_light_block(height, peer_id).await.unwrap() };
-            handles.push(fetch_light_block);
+        for batch_start in (start_height..=end_height).step_by(batch_size) {
+            let batch_end = std::cmp::min(batch_start + (batch_size as u64) - 1, end_height);
+            let mut handles = Vec::new();
+
+            for height in batch_start..=batch_end {
+                let fetch_light_block =
+                    async move { self.fetch_light_block(height, peer_id).await.unwrap() };
+                handles.push(fetch_light_block);
+            }
+
+            // Join all the futures in the current batch
+            let batch_blocks = futures::future::join_all(handles).await;
+            blocks.extend(batch_blocks);
         }
 
-        // Join all the futures
-        futures::future::join_all(handles).await
+        println!("Finished fetching light blocks!");
+        blocks
     }
 
     /// Retrieves light blocks for the trusted and target block heights.
@@ -240,15 +282,46 @@ impl TendermintRPCClient {
         ))
     }
 
+    /// Determines if a valid skip is possible between start_block and target_block.
+    pub fn is_valid_skip(
+        start_validator_set: TendermintValidatorSet,
+        target_validator_set: TendermintValidatorSet,
+        target_block_commit: Commit,
+    ) -> bool {
+        let threshold = 1_f64 / 3_f64;
+        let mut shared_voting_power = 0_u64;
+        let target_block_total_voting_power = target_validator_set.total_voting_power().value();
+        let start_block_validators = start_validator_set.validators();
+        let mut start_block_idx = 0;
+        let start_block_num_validators = start_block_validators.len();
+
+        // Exit if we have already reached the threshold
+        while (target_block_total_voting_power as f64) * threshold > shared_voting_power as f64
+            && start_block_idx < start_block_num_validators
+        {
+            if let Some(target_block_validator) =
+                target_validator_set.validator(start_block_validators[start_block_idx].address)
+            {
+                // Confirm that the validator has signed on target_block.
+                for sig in target_block_commit.signatures.iter() {
+                    if let Some(validator_address) = sig.validator_address() {
+                        if validator_address == target_block_validator.address {
+                            // Add the shared voting power to the validator
+                            shared_voting_power += target_block_validator.power.value();
+                        }
+                    }
+                }
+            }
+            start_block_idx += 1;
+        }
+
+        (target_block_total_voting_power as f64) * threshold <= shared_voting_power as f64
+    }
+
     /// Fetches a header hash for a specific block height.
     pub async fn fetch_header_hash(&self, block_height: u64) -> B256 {
         let peer_id = self.fetch_peer_id().await.unwrap();
-        let light_block = self.fetch_light_block(
-            block_height,
-            peer_id,
-        )
-        .await
-        .unwrap();
+        let light_block = self.fetch_light_block(block_height, peer_id).await.unwrap();
 
         B256::from_slice(light_block.signed_header.header.hash().as_bytes())
     }

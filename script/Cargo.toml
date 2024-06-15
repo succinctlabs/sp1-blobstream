@@ -11,6 +11,11 @@ path = "bin/run.rs"
 name = "genesis"
 path = "bin/genesis.rs"
 
+[[bin]]
+name = "operator"
+path = "bin/operator.rs"
+
+
 [dependencies]
 primitives = { path = "../primitives" }
 alloy = { git = "https://github.com/alloy-rs/alloy", features = ["sol-types"] }

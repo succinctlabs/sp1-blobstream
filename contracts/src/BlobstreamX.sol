@@ -18,7 +18,8 @@ contract BlobstreamX is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
     uint64 public latestBlock;
 
     /// @notice The maximum number of blocks that can be skipped in a single request.
-    uint64 public constant DATA_COMMITMENT_MAX = 10000;
+    /// @dev Reflects the maximum data commitment size you can request from a Celestia node.
+    uint64 public constant DATA_COMMITMENT_MAX = 1000;
 
     /// @notice Nonce for proof events. Must be incremented sequentially.
     uint256 public state_proofNonce;

@@ -4197,6 +4197,9 @@ name = "primitives"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types",
+ "serde",
+ "tendermint",
+ "tendermint-light-client-verifier",
 ]
 
 [[package]]

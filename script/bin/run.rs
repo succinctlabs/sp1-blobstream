@@ -1,8 +1,11 @@
+use std::process::Output;
+
+use alloy_sol_types::SolType;
 use blobstream_script::TendermintProver;
 use clap::Parser;
-use tokio::runtime;
 use primitives::types::ProofOutputs;
-use alloy_sol_types::SolType;
+use sp1_sdk::SP1Stdin;
+use tokio::runtime;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -26,10 +29,7 @@ pub async fn get_data_commitment(start_block: u64, end_block: u64) {
         end_block.to_string().as_str()
     );
 
-    let url = format!(
-        "{}/{}",
-        "http://consensus-full-mocha-4.celestia-mocha.com:26657", route
-    );
+    let url = format!("{}/{}", "https://rpc.lunaroasis.net/", route);
 
     let res = reqwest::get(url.clone()).await;
 
@@ -51,12 +51,16 @@ fn main() -> anyhow::Result<()> {
 
     let rt = runtime::Runtime::new()?;
 
-    // Fetch the stdin for the proof.
-    let stdin = rt.block_on(async {
+    let mut stdin = SP1Stdin::new();
+
+    // Fetch the inputs for the proof.
+    let inputs = rt.block_on(async {
         prover
             .fetch_input_for_blobstream_proof(args.trusted_block, args.target_block)
             .await
     });
+    let encoded_proof_inputs = serde_cbor::to_vec(&inputs).unwrap();
+    stdin.write_vec(encoded_proof_inputs);
 
     // Generate the proof. Depending on SP1_PROVER env, this may be a local or network proof.
     let proof = prover
@@ -66,8 +70,8 @@ fn main() -> anyhow::Result<()> {
     println!("Successfully generated proof!");
 
     let public_values = proof.public_values.as_ref();
-    let _outputs = ProofOutputs::abi_decode(public_values, true).unwrap();
-    println!("Proof output: {}", hex::encode(public_values));
+    let outputs = ProofOutputs::abi_decode(public_values, true).unwrap();
+    println!("Data commitment: {:?}", outputs.2);
 
     // Verify proof.
     prover
