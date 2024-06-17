@@ -1,12 +1,7 @@
 use crate::util::TendermintRPCClient;
 
 use primitives::types::ProofInputs;
-use sp1_sdk::{
-    PlonkBn254Proof, ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin,
-    SP1VerifyingKey,
-};
-use tendermint::block::Header;
-use tendermint_light_client_verifier::types::LightBlock;
+use sp1_sdk::{ProverClient, SP1ProvingKey, SP1VerifyingKey};
 pub mod contract;
 mod types;
 pub mod util;

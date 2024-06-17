@@ -1,5 +1,3 @@
-use std::process::Output;
-
 use alloy_sol_types::SolType;
 use blobstream_script::TendermintProver;
 use clap::Parser;
