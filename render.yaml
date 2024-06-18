@@ -1,0 +1,26 @@
+services:
+  - type: worker
+    runtime: rust
+    name: sp1-blobstream-test-deploy
+    repo: https://github.com/succinctlabs/sp1-blobstream
+    region: oregon
+    plan: pro plus
+    rootDir: script
+    buildCommand: rm -rf build.rs && cargo build --bin operator --release
+    startCommand: cargo run --bin operator --release
+    autoDeploy: true
+    envVars:
+      - key: TENDERMINT_RPC_URL
+        value: https://rpc.lunaroasis.net/
+      - key: SP1_PROVER
+        value: network
+      - key: CHAIN_ID
+        value: 11155111
+      - key: CONTRACT_ADDRESS
+        value: 0x95B644f951a273c004168dC1334Ae6096b092c84
+      - key: PRIVATE_KEY
+        sync: false
+      - key: RPC_URL
+        sync: false
+      - key: SP1_PRIVATE_KEY
+        sync: false
