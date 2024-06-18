@@ -4,7 +4,7 @@ services:
     name: sp1-blobstream-test-deploy
     repo: https://github.com/succinctlabs/sp1-blobstream
     region: oregon
-    plan: pro plus
+    plan: pro
     rootDir: script
     buildCommand: rm -rf build.rs && cargo build --bin operator --release
     startCommand: cargo run --bin operator --release
