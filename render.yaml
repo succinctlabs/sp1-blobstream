@@ -1,7 +1,7 @@
 services:
   - type: worker
     runtime: rust
-    name: sp1-blobstream-test-deploy
+    name: sp1-blobstream-operator
     repo: https://github.com/succinctlabs/sp1-blobstream
     region: oregon
     plan: pro
