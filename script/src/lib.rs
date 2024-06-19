@@ -2,7 +2,6 @@ use crate::util::TendermintRPCClient;
 
 use primitives::types::ProofInputs;
 use sp1_sdk::{ProverClient, SP1ProvingKey, SP1VerifyingKey};
-pub mod contract;
 pub mod relay;
 mod types;
 pub mod util;
