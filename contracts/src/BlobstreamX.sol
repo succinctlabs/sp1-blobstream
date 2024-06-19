@@ -98,6 +98,11 @@ contract SP1Blobstream is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
         verifier = ISP1Verifier(_verifier);
     }
 
+    /// @notice Only the guardian can update the program vkey.
+    function updateProgramVkey(bytes32 _programVkey) external onlyGuardian {
+        blobstreamXProgramVkey = _programVkey;
+    }
+
     /// @notice Commits the new header at targetBlock and the data commitment for the block range [latestBlock, targetBlock).
     /// @param proof The proof bytes for the SP1 proof.
     /// @param publicValues The public commitments from the SP1 proof.
