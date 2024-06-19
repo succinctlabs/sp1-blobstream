@@ -1,23 +1,39 @@
-use alloy::providers::Provider;
+use alloy::network::Ethereum;
+use alloy::primitives::Address;
+use alloy::providers::fillers::{FillProvider, JoinFill, WalletFiller};
+use alloy::providers::{Identity, Provider, RootProvider};
 use alloy::sol;
+use alloy::transports::http::{Client, Http};
 use alloy::{
     network::EthereumWallet, providers::ProviderBuilder, signers::local::PrivateKeySigner,
 };
 use anyhow::Result;
 use blobstream_script::util::TendermintRPCClient;
-use blobstream_script::TendermintProver;
+use blobstream_script::{relay, TendermintProver};
 use log::{error, info};
-use reqwest::Url;
 use sp1_sdk::{ProverClient, SP1PlonkBn254Proof, SP1ProvingKey, SP1Stdin};
 use std::env;
+use std::sync::Arc;
 
 const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
+
+/// Alias the fill provider for the Ethereum network. Retrieved from the instantiation
+/// of the ProviderBuilder. Recommended method for passing around a ProviderBuilder.
+type EthereumFillProvider = FillProvider<
+    JoinFill<Identity, WalletFiller<EthereumWallet>>,
+    RootProvider<Http<Client>>,
+    Http<Client>,
+    Ethereum,
+>;
+
+// type BlobstreamContract = BlobstreamXInstance<Http<Client>, Arc<EthereumFillProvider>>;
 
 struct BlobstreamXOperator {
     client: ProverClient,
     pk: SP1ProvingKey,
+    wallet_filler: Arc<EthereumFillProvider>,
+    address: Address,
     chain_id: u64,
-    rpc_url: Url,
 }
 
 sol! {
@@ -52,46 +68,22 @@ impl BlobstreamXOperator {
             .parse()
             .unwrap();
 
+        let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY not set");
+        let contract_address = env::var("CONTRACT_ADDRESS")
+            .expect("CONTRACT_ADDRESS not set")
+            .parse()
+            .unwrap();
+        let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
+        let wallet = EthereumWallet::from(signer);
+        let provider = ProviderBuilder::new().wallet(wallet).on_http(rpc_url);
+
         Self {
             client,
             pk,
+            wallet_filler: Arc::new(provider),
             chain_id,
-            rpc_url,
+            address: contract_address,
         }
-    }
-
-    /// Get the gas limit.
-    fn get_gas_limit(&self) -> u128 {
-        if self.chain_id == 42161 || self.chain_id == 421614 {
-            15_000_000
-        } else {
-            1_500_000
-        }
-    }
-
-    /// Get the gas fee cap.
-    async fn get_fee_cap(&self) -> u128 {
-        // Base percentage multiplier for the gas fee.
-        let mut multiplier = 20;
-
-        // Double the estimated gas fee cap for the testnets.
-        if self.chain_id == 17000
-            || self.chain_id == 421614
-            || self.chain_id == 11155111
-            || self.chain_id == 84532
-        {
-            multiplier = 100
-        }
-
-        let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
-            .on_http(self.rpc_url.clone());
-
-        // Get the gas price.
-        let gas_price = provider.get_gas_price().await.unwrap();
-
-        // Calculate the fee cap.
-        (gas_price * (100 + multiplier)) / 100
     }
 
     async fn request_header_range(
@@ -117,23 +109,10 @@ impl BlobstreamXOperator {
         let proof_as_bytes = hex::decode(&proof.proof.encoded_proof).unwrap();
         let public_values_bytes = proof.public_values.to_vec();
 
-        let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY not set");
-        let rpc_url = env::var("RPC_URL")
-            .expect("RPC_URL not set")
-            .parse()
-            .unwrap();
-        let contract_address = env::var("CONTRACT_ADDRESS")
-            .expect("CONTRACT_ADDRESS not set")
-            .parse()
-            .unwrap();
-        let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
-        let wallet = EthereumWallet::from(signer);
-        let provider = ProviderBuilder::new().wallet(wallet).on_http(rpc_url);
+        let contract = BlobstreamX::new(self.address, self.wallet_filler.clone());
 
-        let contract = BlobstreamX::new(contract_address, provider);
-
-        let gas_limit = self.get_gas_limit();
-        let max_fee_per_gas = self.get_fee_cap().await;
+        let gas_limit = relay::get_gas_limit(self.chain_id);
+        let max_fee_per_gas = relay::get_fee_cap(self.chain_id, self.wallet_filler.root()).await;
 
         let tx_hash = contract
             .commitHeaderRange(proof_as_bytes.into(), public_values_bytes.into())
@@ -154,19 +133,7 @@ impl BlobstreamXOperator {
         let mut fetcher = TendermintRPCClient::default();
 
         loop {
-            let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY not set");
-            let contract_address = env::var("CONTRACT_ADDRESS")
-                .expect("CONTRACT_ADDRESS not set")
-                .parse()
-                .unwrap();
-            let signer: PrivateKeySigner =
-                private_key.parse().expect("Failed to parse private key");
-            let wallet = EthereumWallet::from(signer);
-            let provider = ProviderBuilder::new()
-                .wallet(wallet)
-                .on_http(self.rpc_url.clone());
-
-            let contract = BlobstreamX::new(contract_address, provider);
+            let contract = BlobstreamX::new(self.address, self.wallet_filler.clone());
 
             // Get the latest block from the contract.
             let current_block = contract.latestBlock().call().await.unwrap();
