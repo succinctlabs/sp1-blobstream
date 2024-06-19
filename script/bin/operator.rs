@@ -1,13 +1,13 @@
-use alloy::network::Ethereum;
-use alloy::primitives::Address;
-use alloy::providers::fillers::{
-    ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
-};
-use alloy::providers::{Identity, Provider, RootProvider};
-use alloy::sol;
-use alloy::transports::http::{Client, Http};
 use alloy::{
-    network::EthereumWallet, providers::ProviderBuilder, signers::local::PrivateKeySigner,
+    network::{Ethereum, EthereumWallet},
+    primitives::Address,
+    providers::{
+        fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
+        Identity, Provider, ProviderBuilder, RootProvider,
+    },
+    signers::local::PrivateKeySigner,
+    sol,
+    transports::http::{Client, Http},
 };
 use anyhow::Result;
 use blobstream_script::util::TendermintRPCClient;
@@ -153,8 +153,7 @@ impl BlobstreamXOperator {
             let contract = BlobstreamX::new(self.address, self.wallet_filler.clone());
 
             // Get the latest block from the contract.
-            let current_block = contract.latestBlock().call().await.unwrap();
-            let current_block: u64 = current_block.latestBlock;
+            let current_block = contract.latestBlock().call().await.unwrap().latestBlock;
 
             // Get the head of the chain.
             let latest_tendermint_block_nb = fetcher.get_latest_block_height().await;
