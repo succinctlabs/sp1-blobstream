@@ -1,4 +1,4 @@
-use alloy_sol_types::SolType;
+use alloy::sol_types::SolType;
 use blobstream_script::TendermintProver;
 use clap::Parser;
 use primitives::types::ProofOutputs;

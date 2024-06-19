@@ -14,8 +14,9 @@ tendermint-light-client-verifier = { version = "0.35.0", default-features = fals
 tendermint = "0.35.0"
 sha2 = "0.10"
 serde_cbor = "0.11.2"
-alloy-sol-types = "0.7.6"
-alloy-primitives = "0.7.6"
+alloy = { version = "0.1.1", default-features = false, features = [
+    "sol-types",
+] }
 
 [patch.crates-io]
 sha2-v0-9-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.9.8" }

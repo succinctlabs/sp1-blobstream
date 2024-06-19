@@ -1,20 +1,21 @@
-use anyhow::Result;
-use ethers::{
-    middleware::SignerMiddleware,
-    providers::{Http, Middleware, Provider},
-    signers::{LocalWallet, Signer},
-    types::{
-        transaction::eip2718::TypedTransaction, Address, TransactionReceipt, TransactionRequest,
-    },
+use alloy::{
+    network::EthereumWallet,
+    primitives::{Address, B256},
+    providers::{Provider, ProviderBuilder},
+    rpc::types::TransactionRequest,
+    signers::local::PrivateKeySigner,
 };
+use anyhow::Result;
+use reqwest::Url;
 use std::env;
 
 /// Wrapper of a `SignerMiddleware` client to send transactions to the given
 /// contract's `Address`.
 pub struct ContractClient {
     chain_id: u64,
-    client: SignerMiddleware<Provider<Http>, LocalWallet>,
+    wallet: EthereumWallet,
     contract: Address,
+    rpc_url: Url,
 }
 
 impl Default for ContractClient {
@@ -35,40 +36,98 @@ impl Default for ContractClient {
 impl ContractClient {
     /// Creates a new `ContractClient`.
     pub fn new(chain_id: u64, rpc_url: &str, private_key: &str, contract: &str) -> Result<Self> {
-        let provider = Provider::<Http>::try_from(rpc_url)?;
+        let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
+        let wallet = EthereumWallet::from(signer);
 
-        let wallet: LocalWallet = private_key.parse::<LocalWallet>()?.with_chain_id(chain_id);
-        let client = SignerMiddleware::new(provider.clone(), wallet.clone());
         let contract = contract.parse::<Address>()?;
 
         Ok(ContractClient {
             chain_id,
-            client,
+            rpc_url: Url::parse(rpc_url)?,
+            wallet,
             contract,
         })
     }
 
     /// Read data from the contract using calldata.
     pub async fn read(&self, calldata: Vec<u8>) -> Result<Vec<u8>> {
-        let mut tx = TypedTransaction::default();
-        tx.set_chain_id(self.chain_id);
-        tx.set_to(self.contract);
-        tx.set_data(calldata.into());
-        let data = self.client.call(&tx, None).await?;
+        let tx = TransactionRequest {
+            chain_id: Some(self.chain_id),
+            to: Some(self.contract.into()),
+            from: Some(self.contract),
+            input: calldata.into(),
+            ..Default::default()
+        };
+
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .on_http(self.rpc_url.clone());
+
+        let data = provider.call(&tx).await?;
 
         Ok(data.to_vec())
     }
 
+    /// Get the gas limit.
+    fn get_gas_limit(&self) -> u64 {
+        if self.chain_id == 42161 || self.chain_id == 421614 {
+            15_000_000
+        } else {
+            1_500_000
+        }
+    }
+
+    /// Get the gas fee cap.
+    async fn get_fee_cap(&self) -> u128 {
+        // Base percentage multiplier for the gas fee.
+        let mut multiplier = 20;
+
+        // Double the estimated gas fee cap for the testnets.
+        if self.chain_id == 17000
+            || self.chain_id == 421614
+            || self.chain_id == 11155111
+            || self.chain_id == 84532
+        {
+            multiplier = 100
+        }
+
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .on_http(self.rpc_url.clone());
+
+        // Get the gas price.
+        let gas_price = provider.get_gas_price().await.unwrap();
+
+        // Calculate the fee cap.
+        (gas_price * (100 + multiplier)) / 100
+    }
+
     /// Send a transaction with the given calldata.
-    pub async fn send(&self, calldata: Vec<u8>) -> Result<Option<TransactionReceipt>> {
-        let tx = TransactionRequest::new()
-            .chain_id(self.chain_id)
-            .to(self.contract)
-            .from(self.client.address())
-            .data(calldata);
+    pub async fn send(&self, calldata: Vec<u8>) -> Result<Option<B256>> {
+        let gas_fee_cap = self.get_fee_cap().await;
+        let gas_limit = self.get_gas_limit();
 
-        let tx = self.client.send_transaction(tx, None).await?.await?;
+        let tx = TransactionRequest {
+            chain_id: Some(self.chain_id),
+            to: Some(self.contract.into()),
+            from: Some(self.contract),
+            input: calldata.into(),
+            gas: Some(gas_limit.into()),
+            gas_price: Some(gas_fee_cap),
+            ..Default::default()
+        };
 
-        Ok(tx)
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(self.wallet.clone())
+            .on_http(self.rpc_url.clone());
+
+        let tx = provider.send_transaction(tx).await?.watch().await;
+
+        if let Ok(tx) = tx {
+            Ok(Some(tx))
+        } else {
+            Ok(None)
+        }
     }
 }
