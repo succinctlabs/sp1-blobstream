@@ -1,6 +1,8 @@
 use alloy::network::Ethereum;
 use alloy::primitives::Address;
-use alloy::providers::fillers::{FillProvider, JoinFill, WalletFiller};
+use alloy::providers::fillers::{
+    ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
+};
 use alloy::providers::{Identity, Provider, RootProvider};
 use alloy::sol;
 use alloy::transports::http::{Client, Http};
@@ -14,13 +16,17 @@ use log::{error, info};
 use sp1_sdk::{ProverClient, SP1PlonkBn254Proof, SP1ProvingKey, SP1Stdin};
 use std::env;
 use std::sync::Arc;
+use std::time::Duration;
 
 const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
 
 /// Alias the fill provider for the Ethereum network. Retrieved from the instantiation
 /// of the ProviderBuilder. Recommended method for passing around a ProviderBuilder.
 type EthereumFillProvider = FillProvider<
-    JoinFill<Identity, WalletFiller<EthereumWallet>>,
+    JoinFill<
+        JoinFill<JoinFill<JoinFill<Identity, GasFiller>, NonceFiller>, ChainIdFiller>,
+        WalletFiller<EthereumWallet>,
+    >,
     RootProvider<Http<Client>>,
     Http<Client>,
     Ethereum,
@@ -57,7 +63,7 @@ impl BlobstreamXOperator {
 
         let client = ProverClient::new();
         let (pk, _) = client.setup(ELF);
-        let chain_id = env::var("CHAIN_ID")
+        let chain_id: u64 = env::var("CHAIN_ID")
             .expect("CHAIN_ID not set")
             .parse()
             .unwrap();
@@ -73,7 +79,10 @@ impl BlobstreamXOperator {
             .unwrap();
         let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
         let wallet = EthereumWallet::from(signer);
-        let provider = ProviderBuilder::new().wallet(wallet).on_http(rpc_url);
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(wallet)
+            .on_http(rpc_url);
 
         Self {
             client,
@@ -112,18 +121,28 @@ impl BlobstreamXOperator {
         let gas_limit = relay::get_gas_limit(self.chain_id);
         let max_fee_per_gas = relay::get_fee_cap(self.chain_id, self.wallet_filler.root()).await;
 
-        let tx_hash = contract
+        // Wait for 3 required confirmations with a timeout of 60 seconds.
+        const NUM_CONFIRMATIONS: u64 = 3;
+        const TIMEOUT_SECONDS: u64 = 60;
+        let receipt = contract
             .commitHeaderRange(proof_as_bytes.into(), public_values_bytes.into())
             .gas_price(max_fee_per_gas)
             .gas(gas_limit)
             .send()
             .await
             .unwrap()
-            .watch()
+            .with_required_confirmations(NUM_CONFIRMATIONS)
+            .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
+            .get_receipt()
             .await
             .unwrap();
 
-        println!("Transaction hash: {:?}", tx_hash);
+        // If status is false, it reverted.
+        if !receipt.status() {
+            error!("Transaction reverted!");
+        }
+
+        println!("Transaction hash: {:?}", receipt.transaction_hash);
     }
 
     async fn run(&mut self, loop_delay_mins: u64, block_interval: u64, data_commitment_max: u64) {
