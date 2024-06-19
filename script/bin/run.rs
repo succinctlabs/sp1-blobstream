@@ -1,7 +1,5 @@
-use alloy::sol_types::SolType;
-use blobstream_script::TendermintProver;
+use blobstream_script::{TendermintProver, TENDERMINT_ELF};
 use clap::Parser;
-use primitives::types::ProofOutputs;
 use sp1_sdk::SP1Stdin;
 use tokio::runtime;
 
@@ -60,22 +58,8 @@ fn main() -> anyhow::Result<()> {
     let encoded_proof_inputs = serde_cbor::to_vec(&inputs).unwrap();
     stdin.write_vec(encoded_proof_inputs);
 
-    // Generate the proof. Depending on SP1_PROVER env, this may be a local or network proof.
-    let proof = prover
-        .prover_client
-        .prove_plonk(&prover.pkey, stdin)
-        .expect("proving failed");
-    println!("Successfully generated proof!");
-
-    let public_values = proof.public_values.as_ref();
-    let outputs = ProofOutputs::abi_decode(public_values, true).unwrap();
-    println!("Data commitment: {:?}", outputs.2);
-
-    // Verify proof.
-    prover
-        .prover_client
-        .verify_plonk(&proof, &prover.vkey)
-        .expect("Verification failed");
+    let (_, report) = prover.prover_client.execute(TENDERMINT_ELF, stdin).unwrap();
+    println!("Report: {:?}", report);
 
     Ok(())
 }

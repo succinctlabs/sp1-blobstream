@@ -26,8 +26,6 @@ type EthereumFillProvider = FillProvider<
     Ethereum,
 >;
 
-// type BlobstreamContract = BlobstreamXInstance<Http<Client>, Arc<EthereumFillProvider>>;
-
 struct BlobstreamXOperator {
     client: ProverClient,
     pk: SP1ProvingKey,
