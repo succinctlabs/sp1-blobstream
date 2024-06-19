@@ -9,7 +9,7 @@ import {IDAOracle} from "@blobstream/IDAOracle.sol";
 import {TimelockedUpgradeable} from "@succinctx/upgrades/TimelockedUpgradeable.sol";
 import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
 
-contract BlobstreamX is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
+contract SP1Blobstream is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
     /// @notice The address of the gateway contract.
     /// @dev DEPECATED: Do not use.
     address public gateway_deprecated;
@@ -64,7 +64,7 @@ contract BlobstreamX is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
     }
 
     function VERSION() external pure override returns (string memory) {
-        return "0.1.0";
+        return "1.0.1";
     }
 
     /// @dev Initializes the contract.
@@ -91,6 +91,11 @@ contract BlobstreamX is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
     function updateGenesisState(uint32 _height, bytes32 _header) external onlyGuardian {
         blockHeightToHeaderHash[_height] = _header;
         latestBlock = _height;
+    }
+
+    /// @notice Only the guardian can update the verifier contract.
+    function updateVerifier(address _verifier) external onlyGuardian {
+        verifier = ISP1Verifier(_verifier);
     }
 
     /// @notice Commits the new header at targetBlock and the data commitment for the block range [latestBlock, targetBlock).
