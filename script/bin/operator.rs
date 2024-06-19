@@ -155,10 +155,6 @@ impl BlobstreamXOperator {
 
         loop {
             let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY not set");
-            let rpc_url = env::var("RPC_URL")
-                .expect("RPC_URL not set")
-                .parse()
-                .unwrap();
             let contract_address = env::var("CONTRACT_ADDRESS")
                 .expect("CONTRACT_ADDRESS not set")
                 .parse()
@@ -166,7 +162,9 @@ impl BlobstreamXOperator {
             let signer: PrivateKeySigner =
                 private_key.parse().expect("Failed to parse private key");
             let wallet = EthereumWallet::from(signer);
-            let provider = ProviderBuilder::new().wallet(wallet).on_http(rpc_url);
+            let provider = ProviderBuilder::new()
+                .wallet(wallet)
+                .on_http(self.rpc_url.clone());
 
             let contract = BlobstreamX::new(contract_address, provider);
 
