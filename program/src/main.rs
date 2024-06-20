@@ -1,8 +1,9 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use alloy_primitives::B256;
-use alloy_sol_types::{sol, SolType};
+use alloy::primitives::B256;
+use alloy::sol;
+use alloy::sol_types::SolType;
 use core::time::Duration;
 use primitives::types::ProofInputs;
 use primitives::types::ProofOutputs;
@@ -93,7 +94,8 @@ fn main() {
     // them as public values.
     let trusted_header_hash =
         B256::from_slice(trusted_light_block.signed_header.header.hash().as_bytes());
-    let target_header_hash = B256::from_slice(target_light_block.signed_header.header.hash().as_bytes());
+    let target_header_hash =
+        B256::from_slice(target_light_block.signed_header.header.hash().as_bytes());
 
     // ABI-Encode Proof Outputs
     let proof_outputs = ProofOutputs::abi_encode(&(

@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::types::*;
-use alloy_primitives::B256;
+use alloy::primitives::B256;
 use reqwest::Client;
 use std::{collections::HashMap, env, error::Error};
 use subtle_encoding::hex;

@@ -1,21 +1,48 @@
-use alloy_primitives::U256;
-use alloy_sol_types::{sol, SolCall, SolType, SolValue};
+use alloy::{
+    network::{Ethereum, EthereumWallet},
+    primitives::Address,
+    providers::{
+        fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
+        Identity, Provider, ProviderBuilder, RootProvider,
+    },
+    signers::local::PrivateKeySigner,
+    sol,
+    transports::http::{Client, Http},
+};
 use anyhow::Result;
 use blobstream_script::util::TendermintRPCClient;
-use blobstream_script::{contract::ContractClient, TendermintProver};
+use blobstream_script::{relay, TendermintProver};
 use log::{error, info};
-use primitives::types::ProofOutputs;
 use sp1_sdk::{ProverClient, SP1PlonkBn254Proof, SP1ProvingKey, SP1Stdin};
 use std::env;
+use std::sync::Arc;
+use std::time::Duration;
+
 const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
 
+/// Alias the fill provider for the Ethereum network. Retrieved from the instantiation
+/// of the ProviderBuilder. Recommended method for passing around a ProviderBuilder.
+type EthereumFillProvider = FillProvider<
+    JoinFill<
+        JoinFill<JoinFill<JoinFill<Identity, GasFiller>, NonceFiller>, ChainIdFiller>,
+        WalletFiller<EthereumWallet>,
+    >,
+    RootProvider<Http<Client>>,
+    Http<Client>,
+    Ethereum,
+>;
+
 struct BlobstreamXOperator {
-    contract: ContractClient,
     client: ProverClient,
     pk: SP1ProvingKey,
+    wallet_filler: Arc<EthereumFillProvider>,
+    address: Address,
+    chain_id: u64,
 }
 
 sol! {
+    #[allow(missing_docs)]
+    #[sol(rpc)]
     contract BlobstreamX {
         bool public frozen;
         uint64 public latestBlock;
@@ -34,14 +61,35 @@ impl BlobstreamXOperator {
     pub async fn new() -> Self {
         dotenv::dotenv().ok();
 
-        let contract = ContractClient::default();
         let client = ProverClient::new();
         let (pk, _) = client.setup(ELF);
+        let chain_id: u64 = env::var("CHAIN_ID")
+            .expect("CHAIN_ID not set")
+            .parse()
+            .unwrap();
+        let rpc_url = env::var("RPC_URL")
+            .expect("RPC_URL not set")
+            .parse()
+            .unwrap();
+
+        let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY not set");
+        let contract_address = env::var("CONTRACT_ADDRESS")
+            .expect("CONTRACT_ADDRESS not set")
+            .parse()
+            .unwrap();
+        let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
+        let wallet = EthereumWallet::from(signer);
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(wallet)
+            .on_http(rpc_url);
 
         Self {
-            contract,
             client,
             pk,
+            wallet_filler: Arc::new(provider),
+            chain_id,
+            address: contract_address,
         }
     }
 
@@ -56,41 +104,45 @@ impl BlobstreamXOperator {
         let inputs = prover
             .fetch_input_for_blobstream_proof(trusted_block, target_block)
             .await;
-        
+
         let encoded_proof_inputs = serde_cbor::to_vec(&inputs).unwrap();
         stdin.write_vec(encoded_proof_inputs);
 
         self.client.prove_plonk(&self.pk, stdin)
     }
 
-    fn log_proof_outputs(&self, proof: &mut SP1PlonkBn254Proof) {
-        // Read output values.
-        let public_values = proof.public_values.as_ref();
-        let outputs = ProofOutputs::abi_decode(public_values, true).unwrap();
-
-        println!("Proof Outputs: {:?}", outputs);
-    }
-
-    /// Relay a header range proof to the SP1 VectorX contract.
-    async fn relay_header_range(&self, mut proof: SP1PlonkBn254Proof) {
-        self.log_proof_outputs(&mut proof);
-
+    /// Relay a header range proof to the SP1 BlobstreamX contract.
+    async fn relay_header_range(&self, proof: SP1PlonkBn254Proof) {
         let proof_as_bytes = hex::decode(&proof.proof.encoded_proof).unwrap();
-        let verify_vectorx_proof_call_data = BlobstreamX::commitHeaderRangeCall {
-            publicValues: proof.public_values.to_vec().into(),
-            proof: proof_as_bytes.into(),
-        }
-        .abi_encode();
+        let public_values_bytes = proof.public_values.to_vec();
 
-        let receipt = self
-            .contract
-            .send(verify_vectorx_proof_call_data)
+        let contract = BlobstreamX::new(self.address, self.wallet_filler.clone());
+
+        let gas_limit = relay::get_gas_limit(self.chain_id);
+        let max_fee_per_gas = relay::get_fee_cap(self.chain_id, self.wallet_filler.root()).await;
+
+        // Wait for 3 required confirmations with a timeout of 60 seconds.
+        const NUM_CONFIRMATIONS: u64 = 3;
+        const TIMEOUT_SECONDS: u64 = 60;
+        let receipt = contract
+            .commitHeaderRange(proof_as_bytes.into(), public_values_bytes.into())
+            .gas_price(max_fee_per_gas)
+            .gas(gas_limit)
+            .send()
             .await
-            .expect("Failed to post/verify header range proof onchain.");
+            .unwrap()
+            .with_required_confirmations(NUM_CONFIRMATIONS)
+            .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
+            .get_receipt()
+            .await
+            .unwrap();
 
-        if let Some(receipt) = receipt {
-            println!("Transaction hash: {:?}", receipt.transaction_hash);
+        // If status is false, it reverted.
+        if !receipt.status() {
+            error!("Transaction reverted!");
         }
+
+        println!("Transaction hash: {:?}", receipt.transaction_hash);
     }
 
     async fn run(&mut self, loop_delay_mins: u64, block_interval: u64, data_commitment_max: u64) {
@@ -98,11 +150,10 @@ impl BlobstreamXOperator {
         let mut fetcher = TendermintRPCClient::default();
 
         loop {
+            let contract = BlobstreamX::new(self.address, self.wallet_filler.clone());
+
             // Get the latest block from the contract.
-            let current_block_call_data = BlobstreamX::latestBlockCall {}.abi_encode();
-            let current_block = self.contract.read(current_block_call_data).await.unwrap();
-            let current_block = U256::abi_decode(&current_block, true).unwrap();
-            let current_block: u64 = current_block.try_into().unwrap();
+            let current_block = contract.latestBlock().call().await.unwrap().latestBlock;
 
             // Get the head of the chain.
             let latest_tendermint_block_nb = fetcher.get_latest_block_height().await;
