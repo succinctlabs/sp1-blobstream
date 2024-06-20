@@ -18,7 +18,7 @@ path = "bin/operator.rs"
 
 [dependencies]
 primitives = { path = "../primitives" }
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "v1.0.5-testnet" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "v1.0.8-testnet" }
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "^1.38.0", features = ["full"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
