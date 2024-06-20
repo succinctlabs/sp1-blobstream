@@ -36,9 +36,10 @@ pub async fn main() {
     if let Some(block) = args.block {
         let header_hash = data_fetcher.fetch_header_hash(block).await;
         info!(
-            "GENESIS_HEIGHT: {:?}\n GENESIS_HEADER: {}",
+            "\nGENESIS_HEIGHT={:?}\nGENESIS_HEADER={}\nBLOBSTREAM_X_PROGRAM_VKEY={}\n",
             block,
-            header_hash.to_string()
+            header_hash.to_string(),
+            vk.bytes32(),
         );
     } else {
         let latest_block_height = data_fetcher.get_latest_block_height().await;

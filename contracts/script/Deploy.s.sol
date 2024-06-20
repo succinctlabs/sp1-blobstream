@@ -9,7 +9,7 @@ import {SP1Verifier} from "@sp1-contracts/SP1Verifier.sol";
 contract DeployScript is Script {
     function setUp() public {}
 
-    function run() public {
+    function run() public returns (address) {
         vm.startBroadcast();
 
         BlobstreamX lightClient;
@@ -20,16 +20,14 @@ contract DeployScript is Script {
             SP1Verifier verifier = new SP1Verifier();
 
             // Deploy contract
-            BlobstreamX lightClientImpl = new BlobstreamX{
-                salt: bytes32(vm.envBytes("CREATE2_SALT"))
-            }();
-            console.logAddress(address(lightClientImpl));
+            BlobstreamX lightClientImpl =
+                new BlobstreamX{salt: bytes32(vm.envBytes("CREATE2_SALT"))}();
 
             lightClient = BlobstreamX(
                 address(
-                    new ERC1967Proxy{
-                        salt: bytes32(vm.envBytes("CREATE2_SALT"))
-                    }(address(lightClientImpl), "")
+                    new ERC1967Proxy{salt: bytes32(vm.envBytes("CREATE2_SALT"))}(
+                        address(lightClientImpl), ""
+                    )
                 )
             );
 
@@ -45,10 +43,8 @@ contract DeployScript is Script {
             );
         } else if (vm.envBool("UPGRADE")) {
             // Deploy contract
-            BlobstreamX lightClientImpl = new BlobstreamX{
-                salt: bytes32(vm.envBytes("CREATE2_SALT"))
-            }();
-            console.logAddress(address(lightClientImpl));
+            BlobstreamX lightClientImpl =
+                new BlobstreamX{salt: bytes32(vm.envBytes("CREATE2_SALT"))}();
 
             address existingProxyAddress = vm.envAddress("CONTRACT_ADDRESS");
 
@@ -58,13 +54,12 @@ contract DeployScript is Script {
             lightClient = BlobstreamX(vm.envAddress("CONTRACT_ADDRESS"));
         }
 
-        console.logAddress(address(lightClient));
-
         if (vm.envBool("UPDATE_GENESIS_STATE")) {
             lightClient.updateGenesisState(
-                uint32(vm.envUint("GENESIS_HEIGHT")),
-                vm.envBytes32("GENESIS_HEADER")
+                uint32(vm.envUint("GENESIS_HEIGHT")), vm.envBytes32("GENESIS_HEADER")
             );
         }
+
+        return address(lightClient);
     }
 }
