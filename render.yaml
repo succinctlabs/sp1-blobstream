@@ -17,7 +17,7 @@ services:
       - key: CHAIN_ID
         value: 11155111
       - key: CONTRACT_ADDRESS
-        value: 0x95B644f951a273c004168dC1334Ae6096b092c84
+        value: 0xbD7834502ab55985ce3300d7e367Ebb62D4998F9
       - key: PRIVATE_KEY
         sync: false
       - key: RPC_URL
