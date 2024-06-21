@@ -133,6 +133,8 @@ contract BlobstreamX is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
 
         emit DataCommitmentStored(state_proofNonce, latestBlock, po.targetBlock, po.dataCommitment);
 
+        emit ValidatorBitmapEquivocation(po.trustedBlock, po.targetBlock, po.validatorBitmap);
+
         state_proofNonce++;
         latestBlock = po.targetBlock;
     }

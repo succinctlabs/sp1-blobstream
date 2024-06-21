@@ -103,6 +103,7 @@ fn main() {
     // This is used to equivocate slashing in the case that validators are malicious. 256 is chosen
     // as the maximum number of validators as it is unlikely that Celestia has >256 validators.
     let mut validator_bitmap = [false; 256];
+    #[allow(clippy::needless_range_loop)]
     for i in 0..trusted_light_block.signed_header.commit.signatures.len() {
         if let CommitSig::BlockIdFlagCommit {
             validator_address: _,
