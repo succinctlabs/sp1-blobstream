@@ -5,9 +5,11 @@ use alloy::primitives::B256;
 use alloy::sol;
 use alloy::sol_types::SolType;
 use core::time::Duration;
+use primitives::bool_array_to_uint256;
 use primitives::types::ProofInputs;
 use primitives::types::ProofOutputs;
 use sha2::Sha256;
+use tendermint::block::CommitSig;
 use tendermint::{block::Header, merkle::simple_hash_from_byte_vectors};
 use tendermint_light_client_verifier::{
     options::Options, types::LightBlock, ProdVerifier, Verdict, Verifier,
@@ -97,13 +99,32 @@ fn main() {
     let target_header_hash =
         B256::from_slice(target_light_block.signed_header.header.hash().as_bytes());
 
-    // ABI-Encode Proof Outputs
+    // Construct a bitmap of the validators from the trusted header that signed off on the new header.
+    // This is used to equivocate slashing in the case that validators are malicious. 256 is chosen
+    // as the maximum number of validators as it is unlikely that Celestia has >256 validators.
+    let mut validator_bitmap = [false; 256];
+    for i in 0..trusted_light_block.signed_header.commit.signatures.len() {
+        if let CommitSig::BlockIdFlagCommit {
+            validator_address: _,
+            timestamp: _,
+            signature: _,
+        } = &trusted_light_block.signed_header.commit.signatures[i]
+        {
+            validator_bitmap[i] = true;
+        }
+    }
+
+    // Convert the validator bitmap to a uint256.
+    let validator_bitmap_u256 = bool_array_to_uint256(validator_bitmap);
+
+    // ABI-Encode the proof outputs.
     let proof_outputs = ProofOutputs::abi_encode(&(
         trusted_header_hash,
         target_header_hash,
         data_commitment,
         trusted_block_height,
         target_block_height,
+        validator_bitmap_u256,
     ));
     sp1_zkvm::io::commit_slice(&proof_outputs);
 }

@@ -36,6 +36,20 @@ interface IBlobstreamX {
         bytes32 indexed dataCommitment
     );
 
+    /// @notice Validator bitmap associated with the proof from trustedBlock to targetBlock.
+    /// @param trustedBlock The trusted block of the block range.
+    /// @param trustedHeader The header hash of the trusted block.
+    /// @param targetBlock The target block of the block range.
+    /// @param targetHeader The header hash of the target block.
+    /// @param validatorBitmap The validator bitmap for the block range.
+    event ValidatorBitmapEquivocation(
+        uint64 trustedBlock,
+        bytes32 trustedHeader,
+        uint64 targetBlock,
+        bytes32 targetHeader,
+        uint256 validatorBitmap
+    );
+
     /// @notice Emits event with the inputs of a next header request.
     /// @param trustedBlock The trusted block for the next header request.
     /// @param trustedHeader The header hash of the trusted block.

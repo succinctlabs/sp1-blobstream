@@ -61,6 +61,7 @@ contract BlobstreamX is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
         bytes32 dataCommitment;
         uint64 trustedBlock;
         uint64 targetBlock;
+        uint256 validatorBitmap;
     }
 
     function VERSION() external pure override returns (string memory) {
