@@ -41,7 +41,7 @@ contract BlobstreamX is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
     /// @notice Indicator of if the contract is frozen.
     bool public frozen;
 
-    /// @notice The verification key for the VectorX program.
+    /// @notice The verification key for the BlobstreamX program.
     bytes32 public blobstreamXProgramVkey;
 
     /// @notice The deployed SP1 verifier contract.
