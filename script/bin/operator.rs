@@ -13,10 +13,12 @@ use anyhow::Result;
 use blobstream_script::util::TendermintRPCClient;
 use blobstream_script::{relay, TendermintProver};
 use log::{error, info};
+use primitives::get_header_update_verdict;
 use sp1_sdk::{ProverClient, SP1PlonkBn254Proof, SP1ProvingKey, SP1Stdin};
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
+use tendermint_light_client_verifier::Verdict;
 
 const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
 
@@ -104,6 +106,11 @@ impl BlobstreamXOperator {
         let inputs = prover
             .fetch_input_for_blobstream_proof(trusted_block, target_block)
             .await;
+
+        // Simulate the step from the trusted block to the target block.
+        let verdict =
+            get_header_update_verdict(&inputs.trusted_light_block, &inputs.target_light_block);
+        assert_eq!(verdict, Verdict::Success);
 
         let encoded_proof_inputs = serde_cbor::to_vec(&inputs).unwrap();
         stdin.write_vec(encoded_proof_inputs);

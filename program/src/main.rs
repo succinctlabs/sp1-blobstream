@@ -4,40 +4,17 @@ sp1_zkvm::entrypoint!(main);
 use alloy::primitives::B256;
 use alloy::sol;
 use alloy::sol_types::SolType;
-use core::time::Duration;
 use primitives::bool_array_to_uint256;
+use primitives::get_header_update_verdict;
 use primitives::types::ProofInputs;
 use primitives::types::ProofOutputs;
 use sha2::Sha256;
 use tendermint::block::CommitSig;
 use tendermint::{block::Header, merkle::simple_hash_from_byte_vectors};
-use tendermint_light_client_verifier::{
-    options::Options, types::LightBlock, ProdVerifier, Verdict, Verifier,
-};
+use tendermint_light_client_verifier::Verdict;
 type DataRootTuple = sol! {
     tuple(uint64, bytes32)
 };
-
-/// Get the verdict for the header update from trusted_block to target_block.
-fn get_header_update_verdict(trusted_block: &LightBlock, target_block: &LightBlock) -> Verdict {
-    let opt = Options {
-        // TODO: Should we set a custom threshold?
-        trust_threshold: Default::default(),
-        // 2 week trusting period.
-        trusting_period: Duration::from_secs(14 * 24 * 60 * 60),
-        clock_drift: Default::default(),
-    };
-
-    let vp = ProdVerifier::default();
-    // TODO: What should we set the verify time to? This prevents outdated headers from being used.
-    let verify_time = target_block.time() + Duration::from_secs(20);
-    vp.verify_update_header(
-        target_block.as_untrusted_state(),
-        trusted_block.as_trusted_state(),
-        &opt,
-        verify_time.unwrap(),
-    )
-}
 
 /// Compute the data commitment for the given headers.
 fn compute_data_commitment(headers: &[Header]) -> [u8; 32] {
