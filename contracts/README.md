@@ -13,7 +13,7 @@ Fill out the following fields in `.env` in `contracts` folder:
 Inside ../script/, run `RUST_LOG=info cargo run --release --bin genesis` to generate the following values. Copy them and paste into `.env`
 - `GENESIS_HEIGHT` - Height of the block at which the contract will be deployed
 - `GENESIS_HEADER` - Header of the block at which the contract will be deployed
-- `BLOBSTREAM_X_PROGRAM_VKEY` - Program verification key of BlobstreamX program
+- `SP1_BLOBSTREAM_PROGRAM_VKEY` - Program verification key of BlobstreamX program
 
 Then run the following command:
 

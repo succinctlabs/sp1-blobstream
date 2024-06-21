@@ -37,7 +37,7 @@ contract DeployScript is Script {
                     guardian: msg.sender,
                     height: uint32(vm.envUint("GENESIS_HEIGHT")),
                     header: vm.envBytes32("GENESIS_HEADER"),
-                    blobstreamXProgramVkey: vm.envBytes32("BLOBSTREAM_X_PROGRAM_VKEY"),
+                    blobstreamXProgramVkey: vm.envBytes32("SP1_BLOBSTREAM_PROGRAM_VKEY"),
                     verifier: address(verifier)
                 })
             );
