@@ -9,6 +9,7 @@ import {IDAOracle} from "@blobstream/IDAOracle.sol";
 import {TimelockedUpgradeable} from "@succinctx/upgrades/TimelockedUpgradeable.sol";
 import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
 
+/// @notice SP1 BlobstreamX contract.
 contract BlobstreamX is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
     /// @notice The address of the gateway contract.
     /// @dev DEPECATED: Do not use.
