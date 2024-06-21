@@ -1,4 +1,4 @@
-# SP1 Blobstream X
+# SP1 Blobstream
 
 ## Overview
 
@@ -11,6 +11,11 @@ Implementation of [Blobstream X](https://github.com/succinctlabs/blobstreamx) in
 - `/contracts`: The contract's source code and deployment scripts. Backwards-compatible with the
     original BlobstreamX implementation in case we need to upgrade.
 
+
+## Deploy SP1 Blobstream
+
+An SP1 Blobstream implementation has three main components:
+- An `SP1Blobstream` contract.
 
 ## Run the BlobstreamX Light Client
 Update the root folder `.env` following `.env.example`
