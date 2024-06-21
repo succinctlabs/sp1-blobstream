@@ -9,8 +9,8 @@ import {IDAOracle} from "@blobstream/IDAOracle.sol";
 import {TimelockedUpgradeable} from "@succinctx/upgrades/TimelockedUpgradeable.sol";
 import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
 
-/// @notice SP1 BlobstreamX contract.
-contract BlobstreamX is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
+/// @notice SP1 SP1Blobstream contract.
+contract SP1Blobstream is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
     /// @notice The address of the gateway contract.
     /// @dev DEPECATED: Do not use.
     address public gateway_deprecated;
@@ -42,7 +42,7 @@ contract BlobstreamX is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
     /// @notice Indicator of if the contract is frozen.
     bool public frozen;
 
-    /// @notice The verification key for the BlobstreamX program.
+    /// @notice The verification key for the SP1Blobstream program.
     bytes32 public blobstreamXProgramVkey;
 
     /// @notice The deployed SP1 verifier contract.
