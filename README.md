@@ -81,8 +81,9 @@ the `SP1Blobstream` contract.
 
 5. Run the SP1 Blobstream operator to update the LC continuously.
 
-```
-cd ../script
-
-TENDERMINT_RPC_URL=https://rpc.celestia-mocha.com/ CHAIN_ID=11155111 RPC_URL=https://ethereum-sepolia.publicnode.com/ CONTRACT_ADDRESS=<SP1_BLOBSTREAM_ADDRESS> cargo run --bin operator --release
-```
+    ```
+    cd ../script
+    
+    TENDERMINT_RPC_URL=https://rpc.celestia-mocha.com/ CHAIN_ID=11155111 RPC_URL=https://ethereum-sepolia.publicnode.com/
+    CONTRACT_ADDRESS=<SP1_BLOBSTREAM_ADDRESS> cargo run --bin operator --release
+    ```
