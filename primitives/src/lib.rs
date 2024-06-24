@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{ops::Add, time::Duration};
 
 use alloy::primitives::U256;
 use tendermint_light_client_verifier::{
@@ -30,15 +30,11 @@ pub fn get_header_update_verdict(trusted_block: &LightBlock, target_block: &Ligh
 
 // Convert a boolean array to a uint256. This is useful for committing to the validator bitmap.
 pub fn bool_array_to_uint256(arr: [bool; 256]) -> U256 {
-    let mut result = [0u64; 4];
+    let mut res = U256::from(0);
     for (index, &value) in arr.iter().enumerate() {
         if value {
-            let word_index = index / 64;
-            let bit_index = index % 64;
-            if word_index < 4 {
-                result[word_index] |= 1 << bit_index;
-            }
+            res = res.add(U256::from(1) << index)
         }
     }
-    U256::from_limbs(result)
+    res
 }
