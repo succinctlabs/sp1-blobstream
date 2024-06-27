@@ -1,6 +1,8 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
+use std::collections::HashSet;
+
 use alloy::primitives::B256;
 use alloy::sol;
 use alloy::sol_types::SolType;
@@ -9,7 +11,6 @@ use primitives::get_header_update_verdict;
 use primitives::types::ProofInputs;
 use primitives::types::ProofOutputs;
 use sha2::Sha256;
-use tendermint::block::CommitSig;
 use tendermint::{block::Header, merkle::simple_hash_from_byte_vectors};
 use tendermint_light_client_verifier::Verdict;
 type DataRootTuple = sol! {
@@ -76,18 +77,33 @@ fn main() {
     let target_header_hash =
         B256::from_slice(target_light_block.signed_header.header.hash().as_bytes());
 
-    // Construct a bitmap of the validators from the trusted header that signed off on the new header.
-    // This is used to equivocate slashing in the case that validators are malicious. 256 is chosen
-    // as the maximum number of validators as it is unlikely that Celestia has >256 validators.
-    let mut validator_bitmap = [false; 256];
-    #[allow(clippy::needless_range_loop)]
+    // Construct a bitmap of the intersection of the validators that signed off on the trusted and
+    // target header. Use the order of the validators from the trusted header. Used to equivocate
+    // slashing in the case that validators are malicious. 256 is chosen as the maximum number of
+    // validators as it is unlikely that Celestia has >256 validators.
+    let mut validators = HashSet::new();
     for i in 0..trusted_light_block.signed_header.commit.signatures.len() {
-        if let CommitSig::BlockIdFlagCommit {
-            validator_address: _,
-            timestamp: _,
-            signature: _,
-        } = &trusted_light_block.signed_header.commit.signatures[i]
-        {
+        for j in 0..target_light_block.signed_header.commit.signatures.len() {
+            let trusted_sig = &trusted_light_block.signed_header.commit.signatures[i];
+            let target_sig = &target_light_block.signed_header.commit.signatures[j];
+
+            if trusted_sig.is_commit()
+                && target_sig.is_commit()
+                && trusted_sig.validator_address() == target_sig.validator_address()
+            {
+                validators.insert(trusted_sig.validator_address().unwrap());
+            }
+        }
+    }
+
+    let mut validator_bitmap = [false; 256];
+    for (i, validator) in trusted_light_block
+        .validators
+        .validators()
+        .iter()
+        .enumerate()
+    {
+        if validators.contains(&validator.address) {
             validator_bitmap[i] = true;
         }
     }
