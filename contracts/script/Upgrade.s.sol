@@ -10,6 +10,8 @@ import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
 
 // Required environment variables:
 // - CONTRACT_ADDRESS
+// - SP1_BLOBSTREAM_PROGRAM_VKEY
+// - SP1_PROVER
 
 contract UpgradeScript is Script {
     function setUp() public {}
@@ -25,6 +27,16 @@ contract UpgradeScript is Script {
 
         lightClient = SP1Blobstream(existingProxyAddress);
         lightClient.upgradeTo(address(lightClientImpl));
+
+        // Update the SP1 Verifier address and the program vkey.
+        if (vm.envBool("MOCK")) {
+            SP1MockVerifier mockVerifier = new SP1MockVerifier();
+            lightClient.updateVerifier(address(mockVerifier));
+        } else {
+            SP1Verifier verifier = new SP1Verifier();
+            lightClient.updateVerifier(address(verifier));
+        }
+        lightClient.updateProgramVkey(vm.envBytes32("SP1_BLOBSTREAM_PROGRAM_VKEY"));
 
         return address(lightClient);
     }
