@@ -21,8 +21,8 @@ interface ISP1Blobstream {
     /// @notice Contract is frozen.
     error ContractFrozen();
 
-    /// @notice Trusted block mismatch.
-    error TrustedBlockMismatch();
+    /// @notice Trusted header mismatch.
+    error TrustedHeaderMismatch();
 
     /// @notice Data commitment stored for the block range [startBlock, endBlock) with proof nonce.
     /// @param proofNonce The nonce of the proof.

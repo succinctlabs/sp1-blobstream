@@ -122,6 +122,9 @@ contract SP1Blobstream is ISP1Blobstream, IDAOracle, TimelockedUpgradeable {
         if (trustedHeader == bytes32(0)) {
             revert TrustedHeaderNotFound();
         }
+        if (trustedHeader != po.trustedHeaderHash) {
+            revert TrustedHeaderMismatch();
+        }
         if (po.targetBlock <= latestBlock || po.targetBlock - latestBlock > DATA_COMMITMENT_MAX) {
             revert TargetBlockNotInRange();
         }
