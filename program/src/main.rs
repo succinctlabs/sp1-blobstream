@@ -1,8 +1,6 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use std::collections::HashSet;
-
 use alloy::primitives::B256;
 use alloy::sol;
 use alloy::sol_types::SolType;
@@ -11,6 +9,7 @@ use primitives::get_header_update_verdict;
 use primitives::types::ProofInputs;
 use primitives::types::ProofOutputs;
 use sha2::Sha256;
+use std::collections::HashSet;
 use tendermint::{block::Header, merkle::simple_hash_from_byte_vectors};
 use tendermint_light_client_verifier::Verdict;
 type DataRootTuple = sol! {
