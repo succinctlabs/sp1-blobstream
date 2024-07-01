@@ -9,7 +9,6 @@ import {SP1MockVerifier} from "@sp1-contracts/SP1MockVerifier.sol";
 import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
 
 // Required environment variables:
-// - CREATE2_SALT
 // - CONTRACT_ADDRESS
 
 contract UpgradeScript is Script {
@@ -21,8 +20,7 @@ contract UpgradeScript is Script {
         SP1Blobstream lightClient;
 
         // Deploy contract.
-        SP1Blobstream lightClientImpl =
-            new SP1Blobstream{salt: bytes32(vm.envBytes("CREATE2_SALT"))}();
+        SP1Blobstream lightClientImpl = new SP1Blobstream();
         address existingProxyAddress = vm.envAddress("CONTRACT_ADDRESS");
 
         lightClient = SP1Blobstream(existingProxyAddress);
