@@ -1,5 +1,6 @@
 use blobstream_script::{TendermintProver, TENDERMINT_ELF};
 use clap::Parser;
+use log::debug;
 use sp1_sdk::SP1Stdin;
 use tokio::runtime;
 
@@ -29,7 +30,7 @@ pub async fn get_data_commitment(start_block: u64, end_block: u64) {
 
     let res = reqwest::get(url.clone()).await;
 
-    println!("Data Commitment Response: {:?}", res.unwrap())
+    debug!("Data Commitment Response: {:?}", res.unwrap())
 }
 
 /// Generate a proof between the given trusted and target blocks.

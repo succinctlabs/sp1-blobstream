@@ -58,7 +58,8 @@ fn get_validator_bitmap_commitment(
     trusted_light_block: &LightBlock,
     target_light_block: &LightBlock,
 ) -> U256 {
-    let mut validators = HashSet::new();
+    // If a validtor has signed off on both headers, add them to the intersection set.
+    let mut validator_commit_intersection = HashSet::new();
     for i in 0..trusted_light_block.signed_header.commit.signatures.len() {
         for j in 0..target_light_block.signed_header.commit.signatures.len() {
             let trusted_sig = &trusted_light_block.signed_header.commit.signatures[i];
@@ -68,11 +69,12 @@ fn get_validator_bitmap_commitment(
                 && target_sig.is_commit()
                 && trusted_sig.validator_address() == target_sig.validator_address()
             {
-                validators.insert(trusted_sig.validator_address().unwrap());
+                validator_commit_intersection.insert(trusted_sig.validator_address().unwrap());
             }
         }
     }
 
+    // Construct the validator bitmap.
     let mut validator_bitmap = [false; 256];
     for (i, validator) in trusted_light_block
         .validators
@@ -80,7 +82,7 @@ fn get_validator_bitmap_commitment(
         .iter()
         .enumerate()
     {
-        if validators.contains(&validator.address) {
+        if validator_commit_intersection.contains(&validator.address) {
             validator_bitmap[i] = true;
         }
     }
@@ -90,8 +92,7 @@ fn get_validator_bitmap_commitment(
 }
 
 fn main() {
-    // Read in the proof inputs. Note: Read in the slice, as bincode is unable to deserialize
-    // protobuf directly.
+    // Read in the proof inputs. Note: Use a slice, as bincode is unable to deserialize protobuf.
     let proof_inputs_vec = sp1_zkvm::io::read_vec();
     let proof_inputs = serde_cbor::from_slice(&proof_inputs_vec).unwrap();
 
@@ -105,11 +106,19 @@ fn main() {
 
     let verdict = get_header_update_verdict(&trusted_light_block, &target_light_block);
 
+    // If the Verdict is not Success, panic.
     match verdict {
-        Verdict::Success => {
-            println!("success");
+        Verdict::Success => (),
+        Verdict::NotEnoughTrust(voting_power_tally) => {
+            panic!(
+                "Not enough trust in the trusted header, voting power tally: {:?}",
+                voting_power_tally
+            );
         }
-        v => panic!("Could not verify updating to target_block, error: {:?}", v),
+        Verdict::Invalid(err) => panic!(
+            "Could not verify updating to target_block, error: {:?}",
+            err
+        ),
     }
 
     // Compute the data commitment across the range.
@@ -123,7 +132,7 @@ fn main() {
     let validator_bitmap_u256 =
         get_validator_bitmap_commitment(&trusted_light_block, &target_light_block);
 
-    // ABI encode the proof outputs and commit them to the zkVM.
+    // ABI encode the proof outputs to bytes and commit them to the zkVM.
     let trusted_header_hash =
         B256::from_slice(trusted_light_block.signed_header.header.hash().as_bytes());
     let target_header_hash =

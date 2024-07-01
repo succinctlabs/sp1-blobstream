@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use crate::types::*;
 use alloy::primitives::B256;
+use log::debug;
 use reqwest::Client;
 use std::{collections::HashMap, env, error::Error};
 use subtle_encoding::hex;
@@ -64,7 +65,7 @@ impl TendermintRPCClient {
         let peer_id = self.fetch_peer_id().await.unwrap();
         let batch_size = 25;
         let mut blocks = Vec::new();
-        println!(
+        debug!(
             "Fetching light blocks in range: {} to {}",
             start_height, end_height
         );
@@ -84,7 +85,7 @@ impl TendermintRPCClient {
             blocks.extend(batch_blocks);
         }
 
-        println!("Finished fetching light blocks!");
+        debug!("Finished fetching light blocks!");
         blocks
     }
 

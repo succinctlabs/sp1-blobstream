@@ -156,7 +156,7 @@ impl SP1BlobstreamOperator {
             error!("Transaction reverted!");
         }
 
-        println!("Transaction hash: {:?}", receipt.transaction_hash);
+        info!("Transaction hash: {:?}", receipt.transaction_hash);
 
         Ok(())
     }
