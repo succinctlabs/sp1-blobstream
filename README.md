@@ -43,14 +43,14 @@ the `SP1Blobstream` contract.
     TENDERMINT_RPC_URL=https://rpc.lunaroasis.net/ cargo run --bin genesis --release
     ```
 
-2. Deploy the `BlobstreamX` contract with genesis parameters: `GENESIS_HEIGHT`, `GENESIS_HEADER`, and `SP1_BLOBSTREAM_PROGRAM_VKEY`.
+2. Deploy the `SP1Blobstream` contract with genesis parameters: `GENESIS_HEIGHT`, `GENESIS_HEADER`, and `SP1_BLOBSTREAM_PROGRAM_VKEY`.
 
     ```shell
     cd ../contracts
 
     forge install
 
-    GENESIS_HEIGHT=<GENESIS_HEIGHT> GENESIS_HEADER=<GENESIS_HEADER> SP1_BLOBSTREAM_PROGRAM_VKEY=<SP1_BLOBSTREAM_PROGRAM_VKEY> forge script script/Deploy.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY --broadcast --verify
+    GENESIS_HEIGHT=<GENESIS_HEIGHT> GENESIS_HEADER=<GENESIS_HEADER> SP1_BLOBSTREAM_PROGRAM_VKEY=<SP1_BLOBSTREAM_PROGRAM_VKEY> forge script script/Deploy.s.sol --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> --etherscan-api-key <ETHERSCAN_API_KEY> --broadcast --verify
     ```
 
     If you see the following error, add `--legacy` to the command.
