@@ -9,7 +9,8 @@ import {IDAOracle} from "@blobstream/IDAOracle.sol";
 import {TimelockedUpgradeable} from "@succinctx/upgrades/TimelockedUpgradeable.sol";
 import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
 
-contract BlobstreamX is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
+/// @notice SP1Blobstream contract.
+contract SP1Blobstream is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
     /// @notice The address of the gateway contract.
     /// @dev DEPECATED: Do not use.
     address public gateway_deprecated;
@@ -41,7 +42,7 @@ contract BlobstreamX is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
     /// @notice Indicator of if the contract is frozen.
     bool public frozen;
 
-    /// @notice The verification key for the VectorX program.
+    /// @notice The verification key for the SP1Blobstream program.
     bytes32 public blobstreamXProgramVkey;
 
     /// @notice The deployed SP1 verifier contract.
@@ -61,6 +62,7 @@ contract BlobstreamX is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
         bytes32 dataCommitment;
         uint64 trustedBlock;
         uint64 targetBlock;
+        uint256 validatorBitmap;
     }
 
     function VERSION() external pure override returns (string memory) {
@@ -131,6 +133,8 @@ contract BlobstreamX is IBlobstreamX, IDAOracle, TimelockedUpgradeable {
         emit HeadUpdate(po.targetBlock, po.targetHeaderHash);
 
         emit DataCommitmentStored(state_proofNonce, latestBlock, po.targetBlock, po.dataCommitment);
+
+        emit ValidatorBitmapEquivocation(po.trustedBlock, po.targetBlock, po.validatorBitmap);
 
         state_proofNonce++;
         latestBlock = po.targetBlock;

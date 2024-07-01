@@ -8,8 +8,9 @@ use tendermint_light_client_verifier::types::LightBlock;
 /// bytes32 data_commitment;
 /// uint64 trusted_block;
 /// uint64 target_block;
+/// uint256 validator_bitmap;
 pub type ProofOutputs = sol! {
-    tuple(bytes32, bytes32, bytes32, uint64, uint64)
+    tuple(bytes32, bytes32, bytes32, uint64, uint64, uint256)
 };
 
 #[derive(Debug, Serialize, Deserialize)]
