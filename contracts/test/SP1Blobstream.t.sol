@@ -4,7 +4,7 @@ pragma solidity ^0.8.22;
 import "forge-std/Test.sol";
 import "../src/SP1Blobstream.sol";
 
-contract BlobstreamXTest is Test {
+contract SP1BlobstreamTest is Test {
     SP1Blobstream public blobstream;
 
     function setUp() public {

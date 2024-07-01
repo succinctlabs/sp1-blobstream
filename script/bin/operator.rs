@@ -22,8 +22,8 @@ use tendermint_light_client_verifier::Verdict;
 
 const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
 
-/// Alias the fill provider for the Ethereum network. Retrieved from the instantiation
-/// of the ProviderBuilder. Recommended method for passing around a ProviderBuilder.
+/// Alias the fill provider for the Ethereum network. Retrieved from the instantiation of the
+/// ProviderBuilder. Recommended method for passing around a ProviderBuilder.
 type EthereumFillProvider = FillProvider<
     JoinFill<
         JoinFill<JoinFill<JoinFill<Identity, GasFiller>, NonceFiller>, ChainIdFiller>,
@@ -34,7 +34,7 @@ type EthereumFillProvider = FillProvider<
     Ethereum,
 >;
 
-struct BlobstreamXOperator {
+struct SP1BlobstreamOperator {
     client: ProverClient,
     pk: SP1ProvingKey,
     wallet_filler: Arc<EthereumFillProvider>,
@@ -46,21 +46,21 @@ struct BlobstreamXOperator {
 sol! {
     #[allow(missing_docs)]
     #[sol(rpc)]
-    contract BlobstreamX {
+    contract SP1Blobstream {
         bool public frozen;
         uint64 public latestBlock;
         uint256 public state_proofNonce;
         mapping(uint64 => bytes32) public blockHeightToHeaderHash;
         mapping(uint256 => bytes32) public state_dataCommitments;
         uint64 public constant DATA_COMMITMENT_MAX = 10000;
-        bytes32 public blobstreamXProgramVkey;
+        bytes32 public blobstreamProgramVkey;
         address public verifier;
 
         function commitHeaderRange(bytes calldata proof, bytes calldata publicValues) external;
     }
 }
 
-impl BlobstreamXOperator {
+impl SP1BlobstreamOperator {
     pub async fn new() -> Self {
         dotenv::dotenv().ok();
 
@@ -121,12 +121,12 @@ impl BlobstreamXOperator {
         self.client.prove_plonk(&self.pk, stdin)
     }
 
-    /// Relay a header range proof to the SP1 BlobstreamX contract.
+    /// Relay a header range proof to the SP1 Blobstream contract.
     async fn relay_header_range(&self, proof: SP1PlonkBn254Proof) -> Result<()> {
         let proof_as_bytes = hex::decode(&proof.proof.encoded_proof)?;
         let public_values_bytes = proof.public_values.to_vec();
 
-        let contract = BlobstreamX::new(self.contract_address, self.wallet_filler.clone());
+        let contract = SP1Blobstream::new(self.contract_address, self.wallet_filler.clone());
 
         let gas_limit = relay::get_gas_limit(self.chain_id);
         let max_fee_per_gas = relay::get_fee_cap(self.chain_id, self.wallet_filler.root()).await;
@@ -156,7 +156,7 @@ impl BlobstreamXOperator {
             error!("Transaction reverted!");
         }
 
-        println!("Transaction hash: {:?}", receipt.transaction_hash);
+        info!("Transaction hash: {:?}", receipt.transaction_hash);
 
         Ok(())
     }
@@ -167,11 +167,11 @@ impl BlobstreamXOperator {
         block_interval: u64,
         data_commitment_max: u64,
     ) -> Result<()> {
-        info!("Starting BlobstreamX operator");
+        info!("Starting SP1 Blobstream operator");
         let mut fetcher = TendermintRPCClient::default();
 
         loop {
-            let contract = BlobstreamX::new(self.contract_address, self.wallet_filler.clone());
+            let contract = SP1Blobstream::new(self.contract_address, self.wallet_filler.clone());
 
             // Get the latest block from the contract.
             let current_block = contract.latestBlock().call().await?.latestBlock;
@@ -255,7 +255,7 @@ async fn main() {
             .expect("invalid DATA_COMMITMENT_MAX");
     }
 
-    let mut operator = BlobstreamXOperator::new().await;
+    let mut operator = SP1BlobstreamOperator::new().await;
     loop {
         if let Err(e) = operator
             .run(loop_delay_mins, update_delay_blocks, data_commitment_max)

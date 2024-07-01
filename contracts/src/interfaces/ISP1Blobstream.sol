@@ -4,7 +4,7 @@ pragma solidity ^0.8.22;
 import "@blobstream/DataRootTuple.sol";
 import "@blobstream/lib/tree/binary/BinaryMerkleTree.sol";
 
-interface IBlobstreamX {
+interface ISP1Blobstream {
     /// @notice Emits event with the new head update.
     event HeadUpdate(uint64 blockNumber, bytes32 headerHash);
 
