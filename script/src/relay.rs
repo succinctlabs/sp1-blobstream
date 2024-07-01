@@ -5,7 +5,7 @@ use alloy::transports::http::{Client, Http};
 /// trial and error and can be configured.
 pub fn get_gas_limit(chain_id: u64) -> u128 {
     if chain_id == 42161 || chain_id == 421614 {
-        15_000_000
+        25_000_000
     } else {
         1_500_000
     }
