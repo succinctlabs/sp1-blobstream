@@ -4,8 +4,8 @@ name = "blobstream-script"
 edition = "2021"
 
 [[bin]]
-name = "run"
-path = "bin/run.rs"
+name = "test"
+path = "bin/test.rs"
 
 [[bin]]
 name = "genesis"

@@ -2,13 +2,13 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
-import "../src/BlobstreamX.sol";
+import "../src/SP1Blobstream.sol";
 
-contract BlobstreamXTest is Test {
-    BlobstreamX public blobstream;
+contract SP1BlobstreamTest is Test {
+    SP1Blobstream public blobstream;
 
     function setUp() public {
-        blobstream = new BlobstreamX();
+        blobstream = new SP1Blobstream();
     }
 
     function testPacked() public pure {
