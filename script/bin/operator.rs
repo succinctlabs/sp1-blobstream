@@ -123,7 +123,14 @@ impl SP1BlobstreamOperator {
 
     /// Relay a header range proof to the SP1 Blobstream contract.
     async fn relay_header_range(&self, proof: SP1PlonkBn254Proof) -> Result<()> {
-        let proof_as_bytes = hex::decode(&proof.proof.encoded_proof)?;
+        // TODO: sp1_sdk should return empty bytes in mock mode.
+        let proof_as_bytes = if env::var("SP1_PROVER").unwrap().to_lowercase() == "mock" {
+            vec![]
+        } else {
+            let proof_str = proof.bytes();
+            // Strip the 0x prefix from proof_str, if it exists.
+            hex::decode(proof_str.replace("0x", "")).unwrap()
+        };
         let public_values_bytes = proof.public_values.to_vec();
 
         let contract = SP1Blobstream::new(self.contract_address, self.wallet_filler.clone());
