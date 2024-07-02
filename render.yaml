@@ -14,6 +14,8 @@ services:
         value: https://rpc.lunaroasis.net/
       - key: SP1_PROVER
         value: network
+      - key: PROVER_NETWORK_RPC
+        value: https://rpc-staging.succinct.xyz
       - key: CHAIN_ID
         value: 11155111
       - key: CONTRACT_ADDRESS

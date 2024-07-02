@@ -4,7 +4,6 @@ pragma solidity ^0.8.22;
 import "forge-std/Script.sol";
 import {SP1Blobstream} from "../src/SP1Blobstream.sol";
 import {ERC1967Proxy} from "@openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
-import {SP1Verifier} from "@sp1-contracts/SP1Verifier.sol";
 import {SP1MockVerifier} from "@sp1-contracts/SP1MockVerifier.sol";
 import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
 
@@ -33,7 +32,7 @@ contract UpgradeScript is Script {
             SP1MockVerifier mockVerifier = new SP1MockVerifier();
             lightClient.updateVerifier(address(mockVerifier));
         } else {
-            SP1Verifier verifier = new SP1Verifier();
+            ISP1Verifier verifier = ISP1Verifier(address(vm.envAddress("SP1_VERIFIER_ADDRESS")));
             lightClient.updateVerifier(address(verifier));
         }
         lightClient.updateProgramVkey(vm.envBytes32("SP1_BLOBSTREAM_PROGRAM_VKEY"));

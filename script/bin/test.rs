@@ -36,7 +36,7 @@ pub async fn get_data_commitment(start_block: u64, end_block: u64) {
 /// Generate a proof between the given trusted and target blocks.
 /// Example:
 /// ```
-/// RUST_LOG=info cargo run --bin script --release -- --trusted-block=1 --target-block=5
+/// RUST_LOG=info cargo run --bin test --release -- --trusted-block=1 --target-block=5
 /// ```
 fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
