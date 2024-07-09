@@ -26,3 +26,30 @@ services:
         sync: false
       - key: SP1_PRIVATE_KEY
         sync: false
+  - type: worker
+    runtime: rust
+    name: sp1-blobstream-operator-holesky
+    repo: https://github.com/succinctlabs/sp1-blobstream
+    region: frankfurt
+    plan: pro
+    rootDir: script
+    buildCommand: rm -rf build.rs && cargo build --bin operator --release
+    startCommand: cargo run --bin operator --release
+    autoDeploy: true
+    envVars:
+      - key: TENDERMINT_RPC_URL
+        value: https://rpc.celestia-mocha.com/
+      - key: SP1_PROVER
+        value: network
+      - key: PROVER_NETWORK_RPC
+        value: https://rpc-staging.succinct.xyz
+      - key: CHAIN_ID
+        value: 17000
+      - key: CONTRACT_ADDRESS
+        value: 0x315A044cb95e4d44bBf6253585FbEbcdB6fb41ef
+      - key: PRIVATE_KEY
+        sync: false
+      - key: RPC_URL
+        sync: false
+      - key: SP1_PRIVATE_KEY
+        sync: false
