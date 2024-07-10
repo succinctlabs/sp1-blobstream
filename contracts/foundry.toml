@@ -2,8 +2,7 @@
 src = "src"
 out = "out"
 libs = ["lib"]
-
-[profile.deploy]
+solc_version = '0.8.23'
 optimizer = true
 optimizer_runs = 200
 # @see {@link https://github.com/foundry-rs/foundry/issues/4060}
@@ -12,7 +11,8 @@ bytecode_hash = "none"
 cbor_metadata = false
 sparse_mode = false
 
-[profile.deploy.optimizer_details]
+
+[profile.default.optimizer_details]
 # constantOptimizer = true
 yul = true
 
