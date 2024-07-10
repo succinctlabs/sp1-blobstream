@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import "@blobstream/DataRootTuple.sol";
-import "@blobstream/lib/tree/binary/BinaryMerkleTree.sol";
+import "blobstream-contracts/DataRootTuple.sol";
+import "blobstream-contracts/lib/tree/binary/BinaryMerkleTree.sol";
 
 interface ISP1Blobstream {
     /// @notice Emits event with the new head update.

@@ -2,10 +2,11 @@
 pragma solidity ^0.8.16;
 
 import {Versioned} from "./Versioned.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {UUPSUpgradeable} from "@openzeppelin-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {Initializable} from
+    "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {AccessControlUpgradeable} from
-    "@openzeppelin-upgradeable/contracts/access/AccessControlUpgradeable.sol";
+    "openzeppelin-contracts-upgradeable/contracts/access/AccessControlUpgradeable.sol";
 
 /// @title TimelockedUpgradeable
 /// @notice A base contract that has modifiers to specify that certain functions are only callable

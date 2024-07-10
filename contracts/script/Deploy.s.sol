@@ -3,9 +3,9 @@ pragma solidity ^0.8.22;
 
 import "forge-std/Script.sol";
 import {SP1Blobstream} from "../src/SP1Blobstream.sol";
-import {ERC1967Proxy} from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {SP1MockVerifier} from "@sp1-contracts/SP1MockVerifier.sol";
-import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {SP1MockVerifier} from "sp1-contracts/src/SP1MockVerifier.sol";
+import {ISP1Verifier} from "sp1-contracts/src/ISP1Verifier.sol";
 
 // Required environment variables:
 // - SP1_PROVER

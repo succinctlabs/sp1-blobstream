@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import "@blobstream/DataRootTuple.sol";
-import "@blobstream/lib/tree/binary/BinaryMerkleTree.sol";
+import "blobstream-contracts/DataRootTuple.sol";
+import "blobstream-contracts/lib/tree/binary/BinaryMerkleTree.sol";
 
 import {ISP1Blobstream} from "./interfaces/ISP1Blobstream.sol";
-import {IDAOracle} from "@blobstream/IDAOracle.sol";
+import {IDAOracle} from "blobstream-contracts/IDAOracle.sol";
 import {TimelockedUpgradeable} from "./TimelockedUpgradeable.sol";
-import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
+import {ISP1Verifier} from "sp1-contracts/src/ISP1Verifier.sol";
 
 /// @notice SP1Blobstream contract.
 contract SP1Blobstream is ISP1Blobstream, IDAOracle, TimelockedUpgradeable {
