@@ -3,3 +3,4 @@
 @tendermintx/=lib/tendermintx/contracts/src/
 @sp1-contracts/=lib/sp1-contracts/contracts/src/
 @openzeppelin-contracts/=lib/openzeppelin-contracts/contracts/
+@openzeppelin-upgradeable/=lib/openzeppelin-contracts-upgradeable/

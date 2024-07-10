@@ -6,7 +6,7 @@ import "@blobstream/lib/tree/binary/BinaryMerkleTree.sol";
 
 import {ISP1Blobstream} from "./interfaces/ISP1Blobstream.sol";
 import {IDAOracle} from "@blobstream/IDAOracle.sol";
-import {TimelockedUpgradeable} from "@succinctx/upgrades/TimelockedUpgradeable.sol";
+import {TimelockedUpgradeable} from "./TimelockedUpgradeable.sol";
 import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
 
 /// @notice SP1Blobstream contract.
