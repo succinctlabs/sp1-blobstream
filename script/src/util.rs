@@ -31,8 +31,7 @@ impl TendermintRPCClient {
         TendermintRPCClient { url }
     }
 
-    // Search to find the highest block number to call request_combined_skip on. If the search
-    // returns start_block + 1, then we call request_combined_step instead.
+    // Search to find the greatest block number to request.
     pub async fn find_block_to_request(&mut self, start_block: u64, max_end_block: u64) -> u64 {
         let mut curr_end_block = max_end_block;
         loop {
