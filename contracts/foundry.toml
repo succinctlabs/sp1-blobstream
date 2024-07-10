@@ -3,7 +3,7 @@ src = "src"
 out = "out"
 libs = ["lib"]
 detect_remappings = false
-solc-version = "0.8.25"
+solc-version = "0.8.22"
 
 [fmt]
 line_length = 100
