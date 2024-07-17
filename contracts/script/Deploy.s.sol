@@ -20,7 +20,7 @@ import {BaseScript} from "./Base.s.sol";
 contract DeployScript is BaseScript {
     function setUp() public {}
 
-    string internal constant KEY = "SP1_VECTOR";
+    string internal constant KEY = "SP1_BLOBSTREAM";
 
     function run() external multichain(KEY) returns (address) {
         vm.startBroadcast();
