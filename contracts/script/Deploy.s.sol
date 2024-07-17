@@ -7,6 +7,8 @@ import {ERC1967Proxy} from "@openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import {SP1MockVerifier} from "@sp1-contracts/SP1MockVerifier.sol";
 import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
 
+import {BaseScript} from "./Base.s.sol";
+
 // Required environment variables:
 // - SP1_PROVER
 // - GENESIS_HEIGHT
@@ -15,24 +17,18 @@ import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
 // - CREATE2_SALT
 // - SP1_VERIFIER_ADDRESS
 
-contract DeployScript is Script {
+contract DeployScript is BaseScript {
     function setUp() public {}
 
-    function run() public returns (address) {
+    string internal constant KEY = "SP1_VECTOR";
+
+    function run() external multichain(KEY) returns (address) {
         vm.startBroadcast();
 
         SP1Blobstream lightClient;
-        ISP1Verifier verifier;
-        // Detect if the SP1_PROVER is set to mock, and pick the correct verifier.
-        string memory mockStr = "mock";
-        if (
-            keccak256(abi.encodePacked(vm.envString("SP1_PROVER")))
-                == keccak256(abi.encodePacked(mockStr))
-        ) {
-            verifier = ISP1Verifier(address(new SP1MockVerifier()));
-        } else {
-            verifier = ISP1Verifier(address(vm.envAddress("SP1_VERIFIER_ADDRESS")));
-        }
+        ISP1Verifier verifier = ISP1Verifier(
+            vm.envOr("SP1_VERIFIER_ADDRESS", 0x3B6041173B80E77f038f3F2C0f9744f04837185e)
+        );
 
         // Deploy the SP1Blobstream contract.
         SP1Blobstream lightClientImpl =
