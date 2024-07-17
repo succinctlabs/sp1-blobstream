@@ -61,6 +61,10 @@ fn main() -> anyhow::Result<()> {
 
     let (_, report) = prover.prover_client.execute(TENDERMINT_ELF, stdin).unwrap();
     println!("Report: {:?}", report);
+    println!(
+        "Total instruction count: {}",
+        report.total_instruction_count()
+    );
 
     Ok(())
 }

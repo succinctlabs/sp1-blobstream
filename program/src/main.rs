@@ -5,12 +5,12 @@ use alloy::primitives::B256;
 use alloy::primitives::U256;
 use alloy::sol;
 use alloy::sol_types::SolType;
-use primitives::convert_bitmap_to_u256;
 use primitives::get_header_update_verdict;
 use primitives::types::ProofInputs;
 use primitives::types::ProofOutputs;
 use sha2::Sha256;
 use std::collections::HashSet;
+use std::ops::Add;
 use tendermint::{block::Header, merkle::simple_hash_from_byte_vectors};
 use tendermint_light_client_verifier::types::LightBlock;
 use tendermint_light_client_verifier::Verdict;
@@ -48,6 +48,17 @@ fn compute_data_commitment(headers: &[Header]) -> [u8; 32] {
 
     // Return the root of the Tendermint Merkle tree.
     simple_hash_from_byte_vectors::<Sha256>(&encoded_data_root_tuples)
+}
+
+// Convert a boolean array to a U256. Used to commit to the validator bitmap.
+fn convert_bitmap_to_u256(arr: [bool; 256]) -> U256 {
+    let mut res = U256::from(0);
+    for (index, &value) in arr.iter().enumerate() {
+        if value {
+            res = res.add(U256::from(1) << index)
+        }
+    }
+    res
 }
 
 /// Construct a bitmap of the intersection of the validators that signed off on the trusted and

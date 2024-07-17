@@ -168,17 +168,19 @@ impl SP1BlobstreamOperator {
         Ok(())
     }
 
-    async fn run(
-        &mut self,
-        loop_delay_mins: u64,
-        block_interval: u64,
-        data_commitment_max: u64,
-    ) -> Result<()> {
+    async fn run(&mut self, loop_delay_mins: u64, block_interval: u64) -> Result<()> {
         info!("Starting SP1 Blobstream operator");
         let mut fetcher = TendermintRPCClient::default();
 
         loop {
             let contract = SP1Blobstream::new(self.contract_address, self.wallet_filler.clone());
+
+            // Read the data commitment max from the contract.
+            let data_commitment_max = contract
+                .DATA_COMMITMENT_MAX()
+                .call()
+                .await?
+                .DATA_COMMITMENT_MAX;
 
             // Get the latest block from the contract.
             let current_block = contract.latestBlock().call().await?.latestBlock;
@@ -251,23 +253,9 @@ async fn main() {
             .expect("invalid UPDATE_DELAY_BLOCKS");
     }
 
-    let data_commitment_max_env = env::var("DATA_COMMITMENT_MAX");
-    // Note: This default value reflects the max data commitment size that can be rquested from the
-    // Celestia node.
-    let mut data_commitment_max = 1000;
-    if data_commitment_max_env.is_ok() {
-        data_commitment_max = data_commitment_max_env
-            .unwrap()
-            .parse::<u64>()
-            .expect("invalid DATA_COMMITMENT_MAX");
-    }
-
     let mut operator = SP1BlobstreamOperator::new().await;
     loop {
-        if let Err(e) = operator
-            .run(loop_delay_mins, update_delay_blocks, data_commitment_max)
-            .await
-        {
+        if let Err(e) = operator.run(loop_delay_mins, update_delay_blocks).await {
             error!("Error running operator: {}", e);
         }
     }

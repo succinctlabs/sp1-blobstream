@@ -6,37 +6,36 @@ import {SP1Blobstream} from "../src/SP1Blobstream.sol";
 import {ERC1967Proxy} from "@openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import {SP1MockVerifier} from "@sp1-contracts/SP1MockVerifier.sol";
 import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
+import {BaseScript} from "./Base.s.sol";
 
 // Required environment variables:
 // - CONTRACT_ADDRESS
 // - SP1_BLOBSTREAM_PROGRAM_VKEY
 // - SP1_PROVER
 
-contract UpgradeScript is Script {
+contract UpgradeScript is BaseScript {
+    using stdJson for string;
+
     function setUp() public {}
 
-    function run() public returns (address) {
-        vm.startBroadcast();
+    string internal constant KEY = "UpgradeScript";
 
-        SP1Blobstream lightClient;
+    /// Reads CONTRACT_ADDRESS_<CHAIN_ID> from the environment variables and updates the SP1 Verifier and program vkey.
+    function run() external multichain(KEY) broadcaster {
+        string memory contractAddressKey =
+            string.concat("CONTRACT_ADDRESS_", vm.toString(block.chainid));
+        address existingProxyAddress = vm.envAddress(contractAddressKey);
 
-        // Deploy contract.
-        SP1Blobstream lightClientImpl = new SP1Blobstream();
-        address existingProxyAddress = vm.envAddress("CONTRACT_ADDRESS");
+        SP1Blobstream sp1Blobstream = SP1Blobstream(address(existingProxyAddress));
 
-        lightClient = SP1Blobstream(existingProxyAddress);
-        lightClient.upgradeTo(address(lightClientImpl));
+        // // Update the SP1 Verifier address and the program vkey.
+        // if (vm.envBool("MOCK")) {
+        //     SP1MockVerifier mockVerifier = new SP1MockVerifier();
+        //     sp1Blobstream.updateVerifier(address(mockVerifier));
+        // } else {
+        //     sp1Blobstream.updateVerifier(vm.envAddress("SP1_VERIFIER_ADDRESS"));
+        // }
 
-        // Update the SP1 Verifier address and the program vkey.
-        if (vm.envBool("MOCK")) {
-            SP1MockVerifier mockVerifier = new SP1MockVerifier();
-            lightClient.updateVerifier(address(mockVerifier));
-        } else {
-            ISP1Verifier verifier = ISP1Verifier(address(vm.envAddress("SP1_VERIFIER_ADDRESS")));
-            lightClient.updateVerifier(address(verifier));
-        }
-        lightClient.updateProgramVkey(vm.envBytes32("SP1_BLOBSTREAM_PROGRAM_VKEY"));
-
-        return address(lightClient);
+        sp1Blobstream.updateProgramVkey(vm.envBytes32("SP1_BLOBSTREAM_PROGRAM_VKEY"));
     }
 }
