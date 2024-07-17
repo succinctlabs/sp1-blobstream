@@ -119,7 +119,7 @@ contract SP1Blobstream is ISP1Blobstream, IDAOracle, TimelockedUpgradeable {
         blobstreamProgramVkey = _programVkey;
     }
 
-    /// @notice Approve a relayer.
+    /// @notice Set a relayer's approval status.
     function setRelayerApproval(address _relayer, bool _approved) external onlyGuardian {
         approvedRelayers[_relayer] = _approved;
     }
