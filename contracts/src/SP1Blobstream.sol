@@ -120,8 +120,8 @@ contract SP1Blobstream is ISP1Blobstream, IDAOracle, TimelockedUpgradeable {
     }
 
     /// @notice Approve a relayer.
-    function approveRelayer(address _relayer) external onlyGuardian {
-        approvedRelayers[_relayer] = true;
+    function setRelayerApproval(address _relayer, bool _approved) external onlyGuardian {
+        approvedRelayers[_relayer] = _approved;
     }
 
     /// @notice Set the relayer check.
