@@ -48,6 +48,12 @@ contract SP1Blobstream is ISP1Blobstream, IDAOracle, TimelockedUpgradeable {
     /// @notice The deployed SP1 verifier contract.
     ISP1Verifier public verifier;
 
+    /// @notice Approved relayers for the contract.
+    mapping(address => bool) public approvedRelayers;
+
+    /// @notice Check the relayer is approved.
+    bool public checkRelayer = false;
+
     struct InitParameters {
         address guardian;
         uint64 height;
@@ -63,6 +69,14 @@ contract SP1Blobstream is ISP1Blobstream, IDAOracle, TimelockedUpgradeable {
         uint64 trustedBlock;
         uint64 targetBlock;
         uint256 validatorBitmap;
+    }
+
+    /// @notice If the relayer check is enabled, only approved relayers can call the function.
+    modifier onlyApprovedRelayer() {
+        if (checkRelayer && !approvedRelayers[msg.sender]) {
+            revert RelayerNotApproved();
+        }
+        _;
     }
 
     function VERSION() external pure override returns (string memory) {
@@ -105,11 +119,24 @@ contract SP1Blobstream is ISP1Blobstream, IDAOracle, TimelockedUpgradeable {
         blobstreamProgramVkey = _programVkey;
     }
 
+    /// @notice Set a relayer's approval status.
+    function setRelayerApproval(address _relayer, bool _approved) external onlyGuardian {
+        approvedRelayers[_relayer] = _approved;
+    }
+
+    /// @notice Set the relayer check.
+    function setRelayerCheck(bool _checkRelayer) external onlyGuardian {
+        checkRelayer = _checkRelayer;
+    }
+
     /// @notice Commits the new header at targetBlock and the data commitment for the block range
     /// [latestBlock, targetBlock).
     /// @param proof The proof bytes for the SP1 proof.
     /// @param publicValues The public commitments from the SP1 proof.
-    function commitHeaderRange(bytes calldata proof, bytes calldata publicValues) external {
+    function commitHeaderRange(bytes calldata proof, bytes calldata publicValues)
+        external
+        onlyApprovedRelayer
+    {
         if (frozen) {
             revert ContractFrozen();
         }

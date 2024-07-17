@@ -60,4 +60,7 @@ interface ISP1Blobstream {
 
     /// @notice Data commitment for specified block range does not exist.
     error DataCommitmentNotFound();
+
+    /// @notice Relayer not approved.
+    error RelayerNotApproved();
 }
