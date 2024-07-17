@@ -19,11 +19,12 @@ pub fn get_header_update_verdict(trusted_block: &LightBlock, target_block: &Ligh
     };
 
     let vp = ProdVerifier::default();
-    // Note: The zkVM has no notion of time. This means that no header will be rejected for being too
+
+    // Note: The zkVM has no notion of time, so no header will be rejected for being too
     // far in the past, which is a potential issue. Deployers must ensure that the target block is not
-    // too far in the past, i.e. the light client must be relatively synchronized with the chain (i.e.)
-    // within the trusting period.
-    let verify_time = target_block.time() + Duration::from_secs(20);
+    // too far in the past, i.e. the light client must be relatively synced with the chain (i.e.
+    // within the trusting period).
+    let verify_time = target_block.time() + Duration::from_secs(10);
     vp.verify_update_header(
         target_block.as_untrusted_state(),
         trusted_block.as_trusted_state(),
