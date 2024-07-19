@@ -125,7 +125,7 @@ contract SP1Blobstream is ISP1Blobstream, IDAOracle, TimelockedUpgradeable {
     }
 
     /// @notice Set the relayer check.
-    function setRelayerCheck(bool _checkRelayer) external onlyGuardian {
+    function setCheckRelayer(bool _checkRelayer) external onlyGuardian {
         checkRelayer = _checkRelayer;
     }
 
