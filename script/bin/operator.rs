@@ -14,7 +14,7 @@ use blobstream_script::util::TendermintRPCClient;
 use blobstream_script::{relay, TendermintProver};
 use log::{error, info};
 use primitives::get_header_update_verdict;
-use sp1_sdk::{ProverClient, SP1PlonkBn254Proof, SP1ProvingKey, SP1Stdin};
+use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin};
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
@@ -102,7 +102,7 @@ impl SP1BlobstreamOperator {
         &self,
         trusted_block: u64,
         target_block: u64,
-    ) -> Result<SP1PlonkBn254Proof> {
+    ) -> Result<SP1ProofWithPublicValues> {
         let prover = TendermintProver::new();
         let mut stdin = SP1Stdin::new();
 
@@ -118,18 +118,16 @@ impl SP1BlobstreamOperator {
         let encoded_proof_inputs = serde_cbor::to_vec(&inputs)?;
         stdin.write_vec(encoded_proof_inputs);
 
-        self.client.prove_plonk(&self.pk, stdin)
+        self.client.prove(&self.pk, stdin).plonk().run()
     }
 
     /// Relay a header range proof to the SP1 Blobstream contract.
-    async fn relay_header_range(&self, proof: SP1PlonkBn254Proof) -> Result<()> {
+    async fn relay_header_range(&self, proof: SP1ProofWithPublicValues) -> Result<()> {
         // TODO: sp1_sdk should return empty bytes in mock mode.
         let proof_as_bytes = if env::var("SP1_PROVER").unwrap().to_lowercase() == "mock" {
             vec![]
         } else {
-            let proof_str = proof.bytes();
-            // Strip the 0x prefix from proof_str, if it exists.
-            hex::decode(proof_str.replace("0x", "")).unwrap()
+            proof.bytes()
         };
         let public_values_bytes = proof.public_values.to_vec();
 

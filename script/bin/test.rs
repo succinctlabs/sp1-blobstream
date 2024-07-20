@@ -59,7 +59,7 @@ fn main() -> anyhow::Result<()> {
     let encoded_proof_inputs = serde_cbor::to_vec(&inputs).unwrap();
     stdin.write_vec(encoded_proof_inputs);
 
-    let (_, report) = prover.prover_client.execute(TENDERMINT_ELF, stdin).unwrap();
+    let (_, report) = prover.prover_client.execute(TENDERMINT_ELF, stdin).run()?;
     println!("Report: {:?}", report);
     println!(
         "Total instruction count: {}",
