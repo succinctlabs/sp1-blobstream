@@ -15,7 +15,7 @@ services:
       - key: SP1_PROVER
         value: network
       - key: PROVER_NETWORK_RPC
-        value: https://rpc-staging.succinct.xyz
+        value: https://3ct2s5q54ed4xg3vcxfu3zrumy0hacjs.lambda-url.us-east-2.on.aws
       - key: CHAIN_ID
         value: 17000
       - key: CONTRACT_ADDRESS
