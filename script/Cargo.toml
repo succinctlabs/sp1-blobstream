@@ -18,7 +18,7 @@ path = "bin/operator.rs"
 
 [dependencies]
 primitives = { path = "../primitives" }
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.0-rc.1" }
+sp1-sdk = "1.1.0"
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "^1.38.0", features = ["full"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -37,4 +37,4 @@ hex = "0.4.3"
 futures = "0.3.30"
 env_logger = "0.11.3"
 [build-dependencies]
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.0-rc.1" }
+sp1-helper = "1.1.0"
