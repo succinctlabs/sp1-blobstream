@@ -60,6 +60,9 @@ sol! {
     }
 }
 
+// Timeout for the proof in seconds.
+const PROOF_TIMEOUT_SECONDS: u64 = 60 * 30;
+
 impl SP1BlobstreamOperator {
     pub async fn new() -> Self {
         dotenv::dotenv().ok();
@@ -118,7 +121,11 @@ impl SP1BlobstreamOperator {
         let encoded_proof_inputs = serde_cbor::to_vec(&inputs)?;
         stdin.write_vec(encoded_proof_inputs);
 
-        self.client.prove(&self.pk, stdin).plonk().run()
+        self.client
+            .prove(&self.pk, stdin)
+            .plonk()
+            .timeout(Duration::from_secs(PROOF_TIMEOUT_SECONDS))
+            .run()
     }
 
     /// Relay a header range proof to the SP1 Blobstream contract.
