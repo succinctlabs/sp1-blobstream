@@ -60,6 +60,7 @@ sol! {
     }
 }
 
+// Timeout for the proof in seconds.
 const PROOF_TIMEOUT_SECONDS: u64 = 60 * 30;
 
 impl SP1BlobstreamOperator {
