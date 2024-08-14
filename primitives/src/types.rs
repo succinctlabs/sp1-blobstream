@@ -15,8 +15,6 @@ pub type ProofOutputs = sol! {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProofInputs {
-    pub trusted_block_height: u64,
-    pub target_block_height: u64,
     pub trusted_light_block: LightBlock,
     pub target_light_block: LightBlock,
     /// Exclusive of trusted_light_block and target_light_block's headers

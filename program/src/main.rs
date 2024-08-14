@@ -69,7 +69,7 @@ fn get_validator_bitmap_commitment(
     trusted_light_block: &LightBlock,
     target_light_block: &LightBlock,
 ) -> U256 {
-    // If a validtor has signed off on both headers, add them to the intersection set.
+    // If a validator has signed off on both headers, add them to the intersection set.
     let mut validator_commit_intersection = HashSet::new();
     for i in 0..trusted_light_block.signed_header.commit.signatures.len() {
         for j in 0..target_light_block.signed_header.commit.signatures.len() {
@@ -108,8 +108,6 @@ fn main() {
     let proof_inputs = serde_cbor::from_slice(&proof_inputs_vec).unwrap();
 
     let ProofInputs {
-        trusted_block_height,
-        target_block_height,
         trusted_light_block,
         target_light_block,
         headers,
@@ -152,8 +150,8 @@ fn main() {
         trusted_header_hash,
         target_header_hash,
         data_commitment,
-        trusted_block_height,
-        target_block_height,
+        trusted_light_block.signed_header.header.height.value(),
+        target_light_block.signed_header.header.height.value(),
         validator_bitmap_u256,
     ));
     sp1_zkvm::io::commit_slice(&proof_outputs);

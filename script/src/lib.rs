@@ -51,8 +51,6 @@ impl TendermintProver {
         }
 
         ProofInputs {
-            trusted_block_height,
-            target_block_height,
             trusted_light_block: light_blocks[0].clone(),
             target_light_block: light_blocks[light_blocks.len() - 1].clone(),
             headers,

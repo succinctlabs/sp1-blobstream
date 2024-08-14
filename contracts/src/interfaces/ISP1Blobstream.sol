@@ -11,9 +11,6 @@ interface ISP1Blobstream {
     /// @notice Trusted header not found.
     error TrustedHeaderNotFound();
 
-    /// @notice Latest header not found.
-    error LatestHeaderNotFound();
-
     /// @notice Target block for proof must be greater than latest block and less than the
     /// latest block plus the maximum number of skipped blocks.
     error TargetBlockNotInRange();
@@ -44,22 +41,6 @@ interface ISP1Blobstream {
     event ValidatorBitmapEquivocation(
         uint64 trustedBlock, uint64 targetBlock, uint256 validatorBitmap
     );
-
-    /// @notice Emits event with the inputs of a next header request.
-    /// @param trustedBlock The trusted block for the next header request.
-    /// @param trustedHeader The header hash of the trusted block.
-    event NextHeaderRequested(uint64 indexed trustedBlock, bytes32 indexed trustedHeader);
-
-    /// @notice Emits event with the inputs of a header range request.
-    /// @param trustedBlock The trusted block for the header range request.
-    /// @param trustedHeader The header hash of the trusted block.
-    /// @param targetBlock The target block of the header range request.
-    event HeaderRangeRequested(
-        uint64 indexed trustedBlock, bytes32 indexed trustedHeader, uint64 indexed targetBlock
-    );
-
-    /// @notice Data commitment for specified block range does not exist.
-    error DataCommitmentNotFound();
 
     /// @notice Relayer not approved.
     error RelayerNotApproved();
