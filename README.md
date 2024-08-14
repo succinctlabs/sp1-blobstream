@@ -90,5 +90,6 @@ the `SP1Blobstream` contract.
 
 ## Known Limitations
 
-**Warning:** The implementation of SP1 Blobstream assumes that the number of validators is less than 256. This limitation is due to the use of a 256-bit bitmap to represent validator signatures. If the number of validators exceeds 256, the `validatorBitmap` functionality may not work as intended, potentially leading to incorrect or incomplete validator equivocation check.
+**Warning:** The implementation of SP1 Blobstream assumes that the number of validators is less than 256. This limitation is due to the use of a 256-bit bitmap to represent whether a validator has signed off on a header. If the number of validators exceeds 256, the `validatorBitmap` functionality may not work as intended, potentially leading to an incomplete
+validator equivocation.
 
