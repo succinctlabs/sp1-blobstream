@@ -10,16 +10,16 @@ services:
     startCommand: cargo run --bin operator --release
     autoDeploy: true
     envVars:
-      - key: TENDERMINT_RPC_URL
-        sync: false
-      - key: SP1_PROVER
-        value: network
-      - key: PROVER_NETWORK_RPC
-        value: https://3ct2s5q54ed4xg3vcxfu3zrumy0hacjs.lambda-url.us-east-2.on.aws
       - key: CHAIN_ID
         value: 17000
       - key: CONTRACT_ADDRESS
         value: 0x315A044cb95e4d44bBf6253585FbEbcdB6fb41ef
+      - key: TENDERMINT_RPC_URL
+        sync: false
+      - key: SP1_PROVER
+        sync: false
+      - key: PROVER_NETWORK_RPC
+        sync: false
       - key: PRIVATE_KEY
         sync: false
       - key: RPC_URL
@@ -37,16 +37,16 @@ services:
     startCommand: cargo run --bin operator --release
     autoDeploy: true
     envVars:
-      - key: TENDERMINT_RPC_URL
-        sync: false
-      - key: SP1_PROVER
-        value: network
-      - key: PROVER_NETWORK_RPC
-        value: https://3ct2s5q54ed4xg3vcxfu3zrumy0hacjs.lambda-url.us-east-2.on.aws
       - key: CHAIN_ID
         value: 11155111
       - key: CONTRACT_ADDRESS
         value: 0xF0c6429ebAB2e7DC6e05DaFB61128bE21f13cb1e
+      - key: TENDERMINT_RPC_URL
+        sync: false
+      - key: SP1_PROVER
+        sync: false
+      - key: PROVER_NETWORK_RPC
+        sync: false
       - key: PRIVATE_KEY
         sync: false
       - key: RPC_URL
@@ -64,16 +64,16 @@ services:
     startCommand: cargo run --bin operator --release
     autoDeploy: true
     envVars:
-      - key: TENDERMINT_RPC_URL
-        sync: false
-      - key: SP1_PROVER
-        value: network
-      - key: PROVER_NETWORK_RPC
-        value: https://3ct2s5q54ed4xg3vcxfu3zrumy0hacjs.lambda-url.us-east-2.on.aws
       - key: CHAIN_ID
         value: 421614
       - key: CONTRACT_ADDRESS
         value: 0xc3e209eb245Fd59c8586777b499d6A665DF3ABD2
+      - key: TENDERMINT_RPC_URL
+        sync: false
+      - key: SP1_PROVER
+        sync: false
+      - key: PROVER_NETWORK_RPC
+        sync: false
       - key: PRIVATE_KEY
         sync: false
       - key: RPC_URL
@@ -91,16 +91,97 @@ services:
     startCommand: cargo run --bin operator --release
     autoDeploy: true
     envVars:
-      - key: TENDERMINT_RPC_URL
-        sync: false
-      - key: SP1_PROVER
-        value: network
-      - key: PROVER_NETWORK_RPC
-        value: https://3ct2s5q54ed4xg3vcxfu3zrumy0hacjs.lambda-url.us-east-2.on.aws
       - key: CHAIN_ID
         value: 84532
       - key: CONTRACT_ADDRESS
         value: 0xc3e209eb245Fd59c8586777b499d6A665DF3ABD2
+      - key: TENDERMINT_RPC_URL
+        sync: false
+      - key: SP1_PROVER
+        sync: false
+      - key: PROVER_NETWORK_RPC
+        sync: false
+      - key: PRIVATE_KEY
+        sync: false
+      - key: RPC_URL
+        sync: false
+      - key: SP1_PRIVATE_KEY
+        sync: false
+  - type: worker
+    runtime: rust
+    name: sp1-blobstream-mainnet:ethereum
+    repo: https://github.com/succinctlabs/sp1-blobstream
+    region: frankfurt
+    plan: pro
+    rootDir: script
+    buildCommand: rm -rf build.rs && cargo build --bin operator --release
+    startCommand: cargo run --bin operator --release
+    autoDeploy: true
+    envVars:
+      - key: CHAIN_ID
+        value: 1
+      - key: CONTRACT_ADDRESS
+        value: 0x7Cf3876F681Dbb6EdA8f6FfC45D66B996Df08fAe
+      - key: TENDERMINT_RPC_URL
+        sync: false
+      - key: SP1_PROVER
+        sync: false
+      - key: PROVER_NETWORK_RPC
+        sync: false
+      - key: PRIVATE_KEY
+        sync: false
+      - key: RPC_URL
+        sync: false
+      - key: SP1_PRIVATE_KEY
+        sync: false
+  - type: worker
+    runtime: rust
+    name: sp1-blobstream-mainnet:base
+    repo: https://github.com/succinctlabs/sp1-blobstream
+    region: frankfurt
+    plan: pro
+    rootDir: script
+    buildCommand: rm -rf build.rs && cargo build --bin operator --release
+    startCommand: cargo run --bin operator --release
+    autoDeploy: true
+    envVars:
+      - key: CHAIN_ID
+        value: 8453
+      - key: CONTRACT_ADDRESS
+        value: 0xA83ca7775Bc2889825BcDeDfFa5b758cf69e8794
+      - key: TENDERMINT_RPC_URL
+        sync: false
+      - key: SP1_PROVER
+        sync: false
+      - key: PROVER_NETWORK_RPC
+        sync: false
+      - key: PRIVATE_KEY
+        sync: false
+      - key: RPC_URL
+        sync: false
+      - key: SP1_PRIVATE_KEY
+        sync: false
+  - type: worker
+    runtime: rust
+    name: sp1-blobstream-mainnet:arbitrum
+    repo: https://github.com/succinctlabs/sp1-blobstream
+    region: frankfurt
+    plan: pro
+    rootDir: script
+    buildCommand: rm -rf build.rs && cargo build --bin operator --release
+    startCommand: cargo run --bin operator --release
+    autoDeploy: true
+    envVars:
+      - key: CHAIN_ID
+        value: 42161
+      - key: CONTRACT_ADDRESS
+        value: 0xA83ca7775Bc2889825BcDeDfFa5b758cf69e8794
+      - key: TENDERMINT_RPC_URL
+        sync: false
+      - key: SP1_PROVER
+        sync: false
+      - key: PROVER_NETWORK_RPC
+        sync: false
       - key: PRIVATE_KEY
         sync: false
       - key: RPC_URL
