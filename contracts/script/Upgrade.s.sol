@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.22;
+pragma solidity ^0.8.26;
 
 import "forge-std/Script.sol";
 import {SP1Blobstream} from "../src/SP1Blobstream.sol";
@@ -24,18 +24,17 @@ contract UpgradeScript is BaseScript {
     function run() external multichain(KEY) broadcaster {
         string memory contractAddressKey =
             string.concat("CONTRACT_ADDRESS_", vm.toString(block.chainid));
-        address existingProxyAddress = vm.envAddress(contractAddressKey);
 
-        SP1Blobstream sp1Blobstream = SP1Blobstream(address(existingProxyAddress));
+        // Deploy new SP1Blobstream.
+        SP1Blobstream newSP1Blobstream = new SP1Blobstream();
 
-        // // Update the SP1 Verifier address and the program vkey.
-        // if (vm.envBool("MOCK")) {
-        //     SP1MockVerifier mockVerifier = new SP1MockVerifier();
-        //     sp1Blobstream.updateVerifier(address(mockVerifier));
-        // } else {
-        //     sp1Blobstream.updateVerifier(vm.envAddress("SP1_VERIFIER_ADDRESS"));
-        // }
+        // Upgrade the existing Blobstream.
+        SP1Blobstream existingBlobstream = SP1Blobstream(vm.envAddress(contractAddressKey));
 
-        sp1Blobstream.updateProgramVkey(vm.envBytes32("SP1_BLOBSTREAM_PROGRAM_VKEY"));
+        existingBlobstream.upgradeTo(address(newSP1Blobstream));
+
+        existingBlobstream.updateVerifier(0x3B6041173B80E77f038f3F2C0f9744f04837185e);
+
+        existingBlobstream.updateProgramVkey(vm.envBytes32("SP1_BLOBSTREAM_PROGRAM_VKEY"));
     }
 }
