@@ -1130,6 +1130,7 @@ dependencies = [
  "reqwest 0.11.27",
  "serde",
  "serde_cbor",
+ "serde_json",
  "sp1-helper",
  "sp1-sdk",
  "subtle-encoding",

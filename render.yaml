@@ -8,7 +8,7 @@ services:
     rootDir: script
     buildCommand: rm -rf build.rs && cargo build --bin operator --release
     startCommand: cargo run --bin operator --release
-    autoDeploy: false
+    autoDeploy: true
     envVars:
       - key: TENDERMINT_RPC_URL
         sync: false

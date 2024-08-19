@@ -1,6 +1,6 @@
 use alloy::{
     network::{Ethereum, EthereumWallet},
-    primitives::Address,
+    primitives::{Address, B256},
     providers::{
         fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
         Identity, Provider, ProviderBuilder, RootProvider,
@@ -14,7 +14,9 @@ use blobstream_script::util::TendermintRPCClient;
 use blobstream_script::{relay, TendermintProver};
 use log::{error, info};
 use primitives::get_header_update_verdict;
-use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin};
+use sp1_sdk::{
+    HashableKey, ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
+};
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
@@ -37,10 +39,12 @@ type EthereumFillProvider = FillProvider<
 struct SP1BlobstreamOperator {
     client: ProverClient,
     pk: SP1ProvingKey,
+    vk: SP1VerifyingKey,
     wallet_filler: Arc<EthereumFillProvider>,
     contract_address: Address,
     relayer_address: Address,
     chain_id: u64,
+    use_kms_relayer: bool,
 }
 
 sol! {
@@ -63,12 +67,18 @@ sol! {
 // Timeout for the proof in seconds.
 const PROOF_TIMEOUT_SECONDS: u64 = 60 * 30;
 
+const NUM_RELAY_RETRIES: u32 = 3;
+
 impl SP1BlobstreamOperator {
     pub async fn new() -> Self {
         dotenv::dotenv().ok();
 
         let client = ProverClient::new();
-        let (pk, _) = client.setup(ELF);
+        let (pk, vk) = client.setup(ELF);
+        let use_kms_relayer: bool = env::var("USE_KMS_RELAYER")
+            .unwrap_or("false".to_string())
+            .parse()
+            .unwrap();
         let chain_id: u64 = env::var("CHAIN_ID")
             .expect("CHAIN_ID not set")
             .parse()
@@ -94,11 +104,33 @@ impl SP1BlobstreamOperator {
         Self {
             client,
             pk,
+            vk,
             wallet_filler: Arc::new(provider),
             chain_id,
             contract_address,
             relayer_address,
+            use_kms_relayer,
         }
+    }
+
+    /// Check the verifying key in the contract matches the verifying key in the prover.
+    async fn check_vkey(&self) -> Result<()> {
+        let contract = SP1Blobstream::new(self.contract_address, self.wallet_filler.clone());
+        let verifying_key = contract
+            .blobstreamProgramVkey()
+            .call()
+            .await?
+            .blobstreamProgramVkey;
+
+        if verifying_key.0.to_vec()
+            != hex::decode(self.vk.bytes32().strip_prefix("0x").unwrap()).unwrap()
+        {
+            return Err(anyhow::anyhow!(
+                    "The verifying key in the operator does not match the verifying key in the contract!"
+                ));
+        }
+
+        Ok(())
     }
 
     async fn request_header_range(
@@ -129,53 +161,71 @@ impl SP1BlobstreamOperator {
     }
 
     /// Relay a header range proof to the SP1 Blobstream contract.
-    async fn relay_header_range(&self, proof: SP1ProofWithPublicValues) -> Result<()> {
+    async fn relay_header_range(&self, proof: SP1ProofWithPublicValues) -> Result<B256> {
         // TODO: sp1_sdk should return empty bytes in mock mode.
         let proof_as_bytes = if env::var("SP1_PROVER").unwrap().to_lowercase() == "mock" {
             vec![]
         } else {
             proof.bytes()
         };
-        let public_values_bytes = proof.public_values.to_vec();
 
         let contract = SP1Blobstream::new(self.contract_address, self.wallet_filler.clone());
 
-        let gas_limit = relay::get_gas_limit(self.chain_id);
-        let max_fee_per_gas = relay::get_fee_cap(self.chain_id, self.wallet_filler.root()).await;
+        if self.use_kms_relayer {
+            let proof_bytes = proof_as_bytes.clone().into();
+            let public_values = proof.public_values.to_vec().into();
+            let commit_header_range = contract.commitHeaderRange(proof_bytes, public_values);
+            relay::relay_with_kms(
+                &relay::KMSRelayRequest {
+                    chain_id: self.chain_id,
+                    address: self.contract_address.to_checksum(None),
+                    calldata: commit_header_range.calldata().to_string(),
+                    platform_request: false,
+                },
+                NUM_RELAY_RETRIES,
+            )
+            .await
+        } else {
+            let public_values_bytes = proof.public_values.to_vec();
 
-        let nonce = self
-            .wallet_filler
-            .get_transaction_count(self.relayer_address)
-            .await?;
+            let gas_limit = relay::get_gas_limit(self.chain_id);
+            let max_fee_per_gas =
+                relay::get_fee_cap(self.chain_id, self.wallet_filler.root()).await;
 
-        // Wait for 3 required confirmations with a timeout of 60 seconds.
-        const NUM_CONFIRMATIONS: u64 = 3;
-        const TIMEOUT_SECONDS: u64 = 60;
-        let receipt = contract
-            .commitHeaderRange(proof_as_bytes.into(), public_values_bytes.into())
-            .gas_price(max_fee_per_gas)
-            .gas(gas_limit)
-            .nonce(nonce)
-            .send()
-            .await?
-            .with_required_confirmations(NUM_CONFIRMATIONS)
-            .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
-            .get_receipt()
-            .await?;
+            let nonce = self
+                .wallet_filler
+                .get_transaction_count(self.relayer_address)
+                .await?;
 
-        // If status is false, it reverted.
-        if !receipt.status() {
-            error!("Transaction reverted!");
+            // Wait for 3 required confirmations with a timeout of 60 seconds.
+            const NUM_CONFIRMATIONS: u64 = 3;
+            const TIMEOUT_SECONDS: u64 = 60;
+            let receipt = contract
+                .commitHeaderRange(proof_as_bytes.into(), public_values_bytes.into())
+                .gas_price(max_fee_per_gas)
+                .gas(gas_limit)
+                .nonce(nonce)
+                .send()
+                .await?
+                .with_required_confirmations(NUM_CONFIRMATIONS)
+                .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
+                .get_receipt()
+                .await?;
+
+            // If status is false, it reverted.
+            if !receipt.status() {
+                error!("Transaction reverted!");
+            }
+
+            Ok(receipt.transaction_hash)
         }
-
-        info!("Transaction hash: {:?}", receipt.transaction_hash);
-
-        Ok(())
     }
 
-    async fn run(&mut self, loop_delay_mins: u64, block_interval: u64) -> Result<()> {
+    async fn run(&mut self) -> Result<()> {
         info!("Starting SP1 Blobstream operator");
         let mut fetcher = TendermintRPCClient::default();
+        let loop_interval_mins = get_loop_interval_mins();
+        let block_update_interval = get_block_update_interval();
 
         loop {
             let contract = SP1Blobstream::new(self.contract_address, self.wallet_filler.clone());
@@ -201,7 +251,7 @@ impl SP1BlobstreamOperator {
                 latest_stable_tendermint_block,
                 data_commitment_max + current_block,
             );
-            let block_to_request = max_block - (max_block % block_interval);
+            let block_to_request = max_block - (max_block % block_update_interval);
 
             // If block_to_request is greater than the current block in the contract, attempt to request.
             if block_to_request > current_block {
@@ -218,7 +268,11 @@ impl SP1BlobstreamOperator {
                 // Request a header range if the target block is not the next block.
                 match self.request_header_range(current_block, target_block).await {
                     Ok(proof) => {
-                        self.relay_header_range(proof).await?;
+                        let tx_hash = self.relay_header_range(proof).await?;
+                        info!(
+                            "Posted data commitment from block {} to block {}\nTransaction hash: {}",
+                            current_block, target_block, tx_hash
+                        );
                     }
                     Err(e) => {
                         error!("Header range request failed: {}", e);
@@ -226,41 +280,47 @@ impl SP1BlobstreamOperator {
                     }
                 };
             } else {
-                info!("Next block to request is {} which is > the head of the Tendermint chain which is {}. Sleeping.", block_to_request + block_interval, latest_stable_tendermint_block);
+                info!("Next block to request is {} which is > the head of the Tendermint chain which is {}. Sleeping.", block_to_request + block_update_interval, latest_stable_tendermint_block);
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_secs(60 * loop_delay_mins)).await;
+            tokio::time::sleep(tokio::time::Duration::from_secs(60 * loop_interval_mins)).await;
         }
     }
 }
 
+fn get_loop_interval_mins() -> u64 {
+    let loop_interval_mins_env = env::var("LOOP_INTERVAL_MINS");
+    let mut loop_interval_mins = 60;
+    if loop_interval_mins_env.is_ok() {
+        loop_interval_mins = loop_interval_mins_env
+            .unwrap()
+            .parse::<u64>()
+            .expect("invalid LOOP_INTERVAL_MINS");
+    }
+    loop_interval_mins
+}
+
+fn get_block_update_interval() -> u64 {
+    let block_update_interval_env = env::var("BLOCK_UPDATE_INTERVAL");
+    let mut block_update_interval = 360;
+    if block_update_interval_env.is_ok() {
+        block_update_interval = block_update_interval_env
+            .unwrap()
+            .parse::<u64>()
+            .expect("invalid BLOCK_UPDATE_INTERVAL");
+    }
+    block_update_interval
+}
+
 #[tokio::main]
 async fn main() {
-    env::set_var("RUST_LOG", "info");
     dotenv::dotenv().ok();
     env_logger::init();
 
-    let loop_delay_mins_env = env::var("LOOP_DELAY_MINS");
-    let mut loop_delay_mins = 5;
-    if loop_delay_mins_env.is_ok() {
-        loop_delay_mins = loop_delay_mins_env
-            .unwrap()
-            .parse::<u64>()
-            .expect("invalid LOOP_DELAY_MINS");
-    }
-
-    let update_delay_blocks_env = env::var("UPDATE_DELAY_BLOCKS");
-    let mut update_delay_blocks = 300;
-    if update_delay_blocks_env.is_ok() {
-        update_delay_blocks = update_delay_blocks_env
-            .unwrap()
-            .parse::<u64>()
-            .expect("invalid UPDATE_DELAY_BLOCKS");
-    }
-
     let mut operator = SP1BlobstreamOperator::new().await;
+    operator.check_vkey().await.unwrap();
     loop {
-        if let Err(e) = operator.run(loop_delay_mins, update_delay_blocks).await {
+        if let Err(e) = operator.run().await {
             error!("Error running operator: {}", e);
         }
     }
