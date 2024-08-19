@@ -11,7 +11,7 @@ services:
     autoDeploy: true
     envVars:
       - key: TENDERMINT_RPC_URL
-        value: https://rpc.celestia-mocha.com/
+        sync: false
       - key: SP1_PROVER
         value: network
       - key: PROVER_NETWORK_RPC
@@ -38,7 +38,7 @@ services:
     autoDeploy: true
     envVars:
       - key: TENDERMINT_RPC_URL
-        value: https://rpc.celestia-mocha.com/
+        sync: false
       - key: SP1_PROVER
         value: network
       - key: PROVER_NETWORK_RPC
@@ -65,7 +65,7 @@ services:
     autoDeploy: true
     envVars:
       - key: TENDERMINT_RPC_URL
-        value: https://rpc.celestia-mocha.com/
+        sync: false
       - key: SP1_PROVER
         value: network
       - key: PROVER_NETWORK_RPC
@@ -92,7 +92,7 @@ services:
     autoDeploy: true
     envVars:
       - key: TENDERMINT_RPC_URL
-        value: https://rpc.celestia-mocha.com/
+        sync: false
       - key: SP1_PROVER
         value: network
       - key: PROVER_NETWORK_RPC
