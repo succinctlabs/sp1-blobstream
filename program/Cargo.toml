@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 primitives = { path = "../primitives" }
-sp1-zkvm = "1.1.0"
+sp1-zkvm = "1.1.1"
 tendermint-light-client-verifier = { version = "0.35.0", default-features = false, features = [
     "rust-crypto",
 ] }
@@ -15,8 +15,3 @@ serde_cbor = "0.11.2"
 alloy = { version = "0.1.1", default-features = false, features = [
     "sol-types",
 ] }
-
-[patch.crates-io]
-sha2-v0-9-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.9.8" }
-sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.10.8" }
-ed25519-consensus = { git = "https://github.com/sp1-patches/ed25519-consensus", branch = "patch-v2.1.0" }

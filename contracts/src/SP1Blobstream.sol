@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.22;
+pragma solidity ^0.8.26;
 
 import "@blobstream/DataRootTuple.sol";
 import "@blobstream/lib/tree/binary/BinaryMerkleTree.sol";
@@ -80,7 +80,7 @@ contract SP1Blobstream is ISP1Blobstream, IDAOracle, TimelockedUpgradeable {
     }
 
     function VERSION() external pure override returns (string memory) {
-        return "1.0.1";
+        return "1.1.0";
     }
 
     /// @dev Initializes the contract.

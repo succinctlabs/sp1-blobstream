@@ -13,7 +13,7 @@ use blobstream_script::util::TendermintRPCClient;
 use clap::Parser;
 use log::info;
 use sp1_sdk::{HashableKey, ProverClient};
-const BLOBSTREAMX_ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
+const BLOBSTREAMX_ELF: &[u8] = include_bytes!("../../elf/blobstream-elf");
 
 #[derive(Parser, Debug, Clone)]
 #[command(about = "Get the genesis parameters from a block.")]
