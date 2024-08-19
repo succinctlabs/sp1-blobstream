@@ -1102,6 +1102,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "blobstream-program"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "primitives",
+ "serde_cbor",
+ "sha2 0.10.8",
+ "sp1-zkvm",
+ "tendermint",
+ "tendermint-light-client-verifier",
+]
+
+[[package]]
 name = "blobstream-script"
 version = "0.1.0"
 dependencies = [
@@ -1580,12 +1593,14 @@ dependencies = [
 [[package]]
 name = "curve25519-dalek-ng"
 version = "4.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c359b7249347e46fb28804470d071c921156ad62b3eef5d34e2ba867533dec8"
+source = "git+https://github.com/sp1-patches/curve25519-dalek-ng.git?branch=patch-v4.1.1#8dd77b20f3e78965a0cc57070a04465b9d52c49e"
 dependencies = [
+ "anyhow",
  "byteorder",
+ "cfg-if",
  "digest 0.9.0",
  "rand_core",
+ "sp1-lib",
  "subtle-ng",
  "zeroize",
 ]
@@ -1781,8 +1796,7 @@ dependencies = [
 [[package]]
 name = "ed25519-consensus"
 version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c8465edc8ee7436ffea81d21a019b16676ee3db267aa8d5a8d729581ecf998b"
+source = "git+https://github.com/sp1-patches/ed25519-consensus?branch=patch-v2.1.0#2b2c4b43344bc4daf5b1326f367f2d9d661eeabb"
 dependencies = [
  "curve25519-dalek-ng",
  "hex",
@@ -5158,8 +5172,7 @@ dependencies = [
 [[package]]
 name = "sha2"
 version = "0.10.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
+source = "git+https://github.com/sp1-patches/RustCrypto-hashes?branch=patch-v0.10.8#1f224388fdede7cef649bce0d63876d1a9e3f515"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -5275,9 +5288,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-build"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "260c285956e8205d332c9a5acbd828462399b04caf72d0620718a20447bac91d"
+checksum = "65c9c5c2628b485693b6c2e5ba89f1af7ce5cfede39a6a4b041afd2e5b838480"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -5361,13 +5374,25 @@ dependencies = [
 
 [[package]]
 name = "sp1-helper"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71dce2545791b5c0c2e65f81eb76d74d51804cbbe758643978dc0bbcdbbaa127"
+checksum = "ec6177089127a447ea26b258f722050c0c4f874eba5df7934b246b59088c8f72"
 dependencies = [
  "cargo_metadata",
  "chrono",
  "sp1-build",
+]
+
+[[package]]
+name = "sp1-lib"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "839009d6aab5876710e2bc35170d1f328bc70f38992f0037b938623dadfcc61f"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "cfg-if",
+ "serde",
 ]
 
 [[package]]
@@ -5577,9 +5602,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-sdk"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6924c2ba6d0a522b17f29368f6db8ebd1bf2a424eb4d6e67308f1be4df9d860c"
+checksum = "b5e3d66fd2b5874bb5b7bce7be8a84c9d496ea5546b3b85a754ac6a9ab9927d5"
 dependencies = [
  "alloy-sol-types",
  "anyhow",
@@ -5617,6 +5642,24 @@ dependencies = [
  "tracing",
  "twirp-rs",
  "vergen",
+]
+
+[[package]]
+name = "sp1-zkvm"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b0d9d1829e7c86862f00d40106111b63ef38ac73e107c40c8d1e88b8f2328a5"
+dependencies = [
+ "bincode",
+ "cfg-if",
+ "getrandom",
+ "lazy_static",
+ "libm",
+ "once_cell",
+ "rand",
+ "serde",
+ "sha2 0.10.8",
+ "sp1-lib",
 ]
 
 [[package]]

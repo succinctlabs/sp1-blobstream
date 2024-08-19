@@ -20,7 +20,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tendermint_light_client_verifier::Verdict;
 
-const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
+const ELF: &[u8] = include_bytes!("../../elf/blobstream-elf");
 
 /// Alias the fill provider for the Ethereum network. Retrieved from the instantiation of the
 /// ProviderBuilder. Recommended method for passing around a ProviderBuilder.
