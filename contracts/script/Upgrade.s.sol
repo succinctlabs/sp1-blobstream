@@ -36,5 +36,12 @@ contract UpgradeScript is BaseScript {
         existingBlobstream.updateVerifier(0x3B6041173B80E77f038f3F2C0f9744f04837185e);
 
         existingBlobstream.updateProgramVkey(vm.envBytes32("SP1_BLOBSTREAM_PROGRAM_VKEY"));
+
+        // Enable relayer check.
+        existingBlobstream.setCheckRelayer(true);
+
+        existingBlobstream.setRelayerApproval(0x44eB418A966ff47f5AF6f48AEa6Afde0bf193a8d, true);
+        // P-OPS relayer on Mocha chains.
+        existingBlobstream.setRelayerApproval(0xEdaCeBA3c0F0beb91771A4193784051a72f44983, true);
     }
 }
