@@ -10,6 +10,8 @@ services:
     startCommand: cargo run --bin operator --release
     autoDeploy: true
     envVars:
+      - key: LOOP_INTERVAL_MINS
+        value: 10
       - key: TENDERMINT_RPC_URL
         sync: false
       - key: SP1_PROVER
@@ -37,6 +39,8 @@ services:
     startCommand: cargo run --bin operator --release
     autoDeploy: true
     envVars:
+      - key: LOOP_INTERVAL_MINS
+        value: 10
       - key: TENDERMINT_RPC_URL
         sync: false
       - key: SP1_PROVER
@@ -64,6 +68,8 @@ services:
     startCommand: cargo run --bin operator --release
     autoDeploy: true
     envVars:
+      - key: LOOP_INTERVAL_MINS
+        value: 10
       - key: TENDERMINT_RPC_URL
         sync: false
       - key: SP1_PROVER
@@ -91,6 +97,8 @@ services:
     startCommand: cargo run --bin operator --release
     autoDeploy: true
     envVars:
+      - key: LOOP_INTERVAL_MINS
+        value: 10
       - key: TENDERMINT_RPC_URL
         sync: false
       - key: SP1_PROVER
