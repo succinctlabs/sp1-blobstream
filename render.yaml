@@ -10,6 +10,8 @@ services:
     startCommand: cargo run --bin operator --release
     autoDeploy: true
     envVars:
+      - key: LOOP_INTERVAL_MINS
+        value: 10
       - key: CHAIN_ID
         value: 17000
       - key: CONTRACT_ADDRESS
@@ -37,6 +39,8 @@ services:
     startCommand: cargo run --bin operator --release
     autoDeploy: true
     envVars:
+      - key: LOOP_INTERVAL_MINS
+        value: 10
       - key: CHAIN_ID
         value: 11155111
       - key: CONTRACT_ADDRESS
@@ -64,6 +68,8 @@ services:
     startCommand: cargo run --bin operator --release
     autoDeploy: true
     envVars:
+      - key: LOOP_INTERVAL_MINS
+        value: 10
       - key: CHAIN_ID
         value: 421614
       - key: CONTRACT_ADDRESS
@@ -91,6 +97,8 @@ services:
     startCommand: cargo run --bin operator --release
     autoDeploy: true
     envVars:
+      - key: LOOP_INTERVAL_MINS
+        value: 10
       - key: CHAIN_ID
         value: 84532
       - key: CONTRACT_ADDRESS

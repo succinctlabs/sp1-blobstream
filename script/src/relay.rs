@@ -1,5 +1,6 @@
 use std::env;
 use std::str::FromStr;
+use std::time::Duration;
 
 use alloy::primitives::B256;
 use alloy::providers::{Provider, RootProvider};
@@ -107,6 +108,7 @@ async fn send_kms_relay_request(args: &KMSRelayRequest) -> Result<KMSRelayRespon
         .post(format!("{}/relay", relayer_endpoint))
         .bearer_auth(api_key)
         .json(&json!(args))
+        .timeout(Duration::from_secs(30))
         .send()
         .await?;
     let response_body = response.text().await?;
