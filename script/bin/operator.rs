@@ -88,7 +88,12 @@ impl SP1BlobstreamOperator {
             .parse()
             .unwrap();
 
-        let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY not set");
+        let private_key = if !use_kms_relayer {
+            env::var("PRIVATE_KEY").expect("PRIVATE_KEY must be set if USE_KMS_RELAYER is false.")
+        } else {
+            String::new()
+        };
+
         let contract_address = env::var("CONTRACT_ADDRESS")
             .expect("CONTRACT_ADDRESS not set")
             .parse()
