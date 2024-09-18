@@ -3,6 +3,7 @@ use crate::types::*;
 use alloy::primitives::B256;
 use log::debug;
 use reqwest::Client;
+use std::sync::Arc;
 use std::{collections::HashMap, env, error::Error};
 use subtle_encoding::hex;
 use tendermint::block::Commit;
@@ -16,19 +17,31 @@ use tendermint_light_client_verifier::types::{LightBlock, ValidatorSet};
 
 pub struct TendermintRPCClient {
     url: String,
+    client: Arc<Client>,
 }
 
 impl Default for TendermintRPCClient {
     fn default() -> Self {
-        TendermintRPCClient {
-            url: env::var("TENDERMINT_RPC_URL").expect("TENDERMINT_RPC_URL not set"),
-        }
+        let url = env::var("TENDERMINT_RPC_URL").expect("TENDERMINT_RPC_URL not set");
+        Self::new(url)
     }
 }
 
+/// The default timeout for Tendermint RPC requests in seconds.
+const DEFAULT_TENDERMINT_RPC_TIMEOUT_SECS: u64 = 20;
+
 impl TendermintRPCClient {
     pub fn new(url: String) -> Self {
-        TendermintRPCClient { url }
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(
+                DEFAULT_TENDERMINT_RPC_TIMEOUT_SECS,
+            ))
+            .build()
+            .unwrap();
+        TendermintRPCClient {
+            url,
+            client: Arc::new(client),
+        }
     }
 
     // Search to find the greatest block number to request.
@@ -146,10 +159,10 @@ impl TendermintRPCClient {
 
     /// Fetches the peer ID from the Tendermint node.
     async fn fetch_peer_id(&self) -> Result<[u8; 20], Box<dyn Error>> {
-        let client = Client::new();
         let fetch_peer_id_url = format!("{}/status", self.url);
 
-        let response: PeerIdResponse = client
+        let response: PeerIdResponse = self
+            .client
             .get(fetch_peer_id_url)
             .send()
             .await?
@@ -164,13 +177,13 @@ impl TendermintRPCClient {
 
     /// Fetches a block by its hash.
     async fn fetch_block_by_hash(&self, hash: &[u8]) -> Result<BlockResponse, Box<dyn Error>> {
-        let client = Client::new();
         let block_by_hash_url = format!(
             "{}/block_by_hash?hash=0x{}",
             self.url,
             String::from_utf8(hex::encode(hash)).unwrap()
         );
-        let response: BlockResponse = client
+        let response: BlockResponse = self
+            .client
             .get(block_by_hash_url)
             .send()
             .await?
@@ -194,9 +207,9 @@ impl TendermintRPCClient {
     /// Fetches the latest commit from the Tendermint node.
     async fn fetch_latest_commit(&self) -> Result<CommitResponse, Box<dyn Error>> {
         let url = format!("{}/commit", self.url);
-        let client = Client::new();
 
-        let response: CommitResponse = client
+        let response: CommitResponse = self
+            .client
             .get(url)
             .send()
             .await?
@@ -209,9 +222,8 @@ impl TendermintRPCClient {
     async fn fetch_commit(&self, block_height: u64) -> Result<CommitResponse, Box<dyn Error>> {
         let url = format!("{}/{}", self.url, "commit");
 
-        let client = Client::new();
-
-        let response: CommitResponse = client
+        let response: CommitResponse = self
+            .client
             .get(url)
             .query(&[
                 ("height", block_height.to_string().as_str()),
@@ -228,12 +240,12 @@ impl TendermintRPCClient {
     async fn fetch_validators(&self, block_height: u64) -> Result<Vec<Info>, Box<dyn Error>> {
         let url = format!("{}/{}", self.url, "validators");
 
-        let client = Client::new();
         let mut validators = vec![];
         let mut collected_validators = 0;
         let mut page_index = 1;
         loop {
-            let response = client
+            let response = self
+                .client
                 .get(&url)
                 .query(&[
                     ("height", block_height.to_string().as_str()),
