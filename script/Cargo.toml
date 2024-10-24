@@ -15,10 +15,13 @@ path = "bin/genesis.rs"
 name = "operator"
 path = "bin/operator.rs"
 
+[[bin]]
+name = "vkey"
+path = "bin/vkey.rs"
 
 [dependencies]
 primitives = { path = "../primitives" }
-sp1-sdk = "2.0.0"
+sp1-sdk = "3.0.0"
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "^1.38.0", features = ["full"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -38,4 +41,4 @@ futures = "0.3.30"
 env_logger = "0.11.3"
 serde_json = "1"
 [build-dependencies]
-sp1-build = "2.0.0"
+sp1-build = "3.0.0"
