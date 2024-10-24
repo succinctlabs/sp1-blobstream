@@ -1,11 +1,3 @@
-//! To build the binary:
-//!
-//!     `cargo build --release --bin genesis`
-//!
-//!
-//!
-//!
-//!
 use sp1_sdk::{HashableKey, ProverClient};
 const BLOBSTREAMX_ELF: &[u8] = include_bytes!("../../elf/blobstream-elf");
 
