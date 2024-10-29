@@ -124,7 +124,7 @@ services:
     rootDir: script
     buildCommand: rm -rf build.rs && cargo build --bin operator --release
     startCommand: cargo run --bin operator --release
-    autoDeploy: true
+    autoDeploy: false
     envVars:
       - key: CHAIN_ID
         value: 1
@@ -151,7 +151,7 @@ services:
     rootDir: script
     buildCommand: rm -rf build.rs && cargo build --bin operator --release
     startCommand: cargo run --bin operator --release
-    autoDeploy: true
+    autoDeploy: false
     envVars:
       - key: CHAIN_ID
         value: 8453
@@ -178,7 +178,7 @@ services:
     rootDir: script
     buildCommand: rm -rf build.rs && cargo build --bin operator --release
     startCommand: cargo run --bin operator --release
-    autoDeploy: true
+    autoDeploy: false
     envVars:
       - key: CHAIN_ID
         value: 42161
