@@ -102,7 +102,7 @@ fn get_validator_bitmap_commitment(
     convert_bitmap_to_u256(validator_bitmap)
 }
 
-fn main() {
+pub fn main() {
     // Read in the proof inputs. Note: Use a slice, as bincode is unable to deserialize protobuf.
     let proof_inputs_vec = sp1_zkvm::io::read_vec();
     let proof_inputs = serde_cbor::from_slice(&proof_inputs_vec).unwrap();
