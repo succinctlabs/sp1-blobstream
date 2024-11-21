@@ -222,6 +222,8 @@ impl SP1BlobstreamOperator {
     }
 
     async fn run(&self) -> Result<()> {
+        self.check_vkey().await?;
+
         let fetcher = TendermintRPCClient::default();
         let block_update_interval = get_block_update_interval();
 
@@ -312,7 +314,6 @@ async fn main() {
     env_logger::init();
 
     let operator = SP1BlobstreamOperator::new().await;
-    operator.check_vkey().await.unwrap();
 
     info!("Starting SP1 Blobstream operator");
     const LOOP_TIMEOUT_MINS: u64 = 20;
