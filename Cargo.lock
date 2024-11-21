@@ -1133,6 +1133,7 @@ dependencies = [
  "tendermint",
  "tendermint-light-client-verifier",
  "tokio",
+ "tower 0.5.1",
 ]
 
 [[package]]
@@ -6223,6 +6224,8 @@ version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2873938d487c3cfb9aed7546dc9f2711d867c9f90c46b889989a2cb84eba6b4f"
 dependencies = [
+ "pin-project-lite",
+ "tokio",
  "tower-layer",
  "tower-service",
 ]

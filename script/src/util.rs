@@ -45,7 +45,7 @@ impl TendermintRPCClient {
     }
 
     // Search to find the greatest block number to request.
-    pub async fn find_block_to_request(&mut self, start_block: u64, max_end_block: u64) -> u64 {
+    pub async fn find_block_to_request(&self, start_block: u64, max_end_block: u64) -> u64 {
         let mut curr_end_block = max_end_block;
         loop {
             if curr_end_block - start_block == 1 {
