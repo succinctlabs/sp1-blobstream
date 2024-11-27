@@ -26,22 +26,22 @@ contract UpgradeScript is BaseScript {
             string.concat("CONTRACT_ADDRESS_", vm.toString(block.chainid));
 
         // Deploy new SP1Blobstream.
-        SP1Blobstream newSP1Blobstream = new SP1Blobstream();
+        SP1Blobstream newSP1Blobstream = new SP1Blobstream{salt: bytes32(0)}();
 
         // Upgrade the existing Blobstream.
         SP1Blobstream existingBlobstream = SP1Blobstream(vm.envAddress(contractAddressKey));
 
-        existingBlobstream.upgradeTo(address(newSP1Blobstream));
+        // existingBlobstream.upgradeTo(address(newSP1Blobstream));
 
-        existingBlobstream.updateVerifier(0x3B6041173B80E77f038f3F2C0f9744f04837185e);
+        // existingBlobstream.updateVerifier(0x3B6041173B80E77f038f3F2C0f9744f04837185e);
 
-        existingBlobstream.updateProgramVkey(vm.envBytes32("SP1_BLOBSTREAM_PROGRAM_VKEY"));
+        // existingBlobstream.updateProgramVkey(vm.envBytes32("SP1_BLOBSTREAM_PROGRAM_VKEY"));
 
-        // Enable relayer check.
-        existingBlobstream.setCheckRelayer(true);
+        // // Enable relayer check.
+        // existingBlobstream.setCheckRelayer(true);
 
-        existingBlobstream.setRelayerApproval(0x44eB418A966ff47f5AF6f48AEa6Afde0bf193a8d, true);
-        // P-OPS relayer on Mocha chains.
-        existingBlobstream.setRelayerApproval(0xEdaCeBA3c0F0beb91771A4193784051a72f44983, true);
+        // existingBlobstream.setRelayerApproval(0x44eB418A966ff47f5AF6f48AEa6Afde0bf193a8d, true);
+        // // P-OPS relayer on Mocha chains.
+        // existingBlobstream.setRelayerApproval(0xEdaCeBA3c0F0beb91771A4193784051a72f44983, true);
     }
 }
