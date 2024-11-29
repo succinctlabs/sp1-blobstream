@@ -18,4 +18,5 @@ pgo-data.profdata
 .env
 .idea
 
-filtered_transactions/
+filtered_transactions/**.csv
+filtered_transactions
