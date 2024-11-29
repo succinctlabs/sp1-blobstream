@@ -18,4 +18,4 @@ pgo-data.profdata
 .env
 .idea
 
-.gitignore
+filtered_transactions/
