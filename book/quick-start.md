@@ -1,4 +1,8 @@
-# Deploying SP1 Blobstream
+# Quick Start
+
+This guide will walk you through deploying the SP1 Blobstream contract and running the operator.
+
+## Deploying SP1 Blobstream
 
 1. To deploy an SP1 Blobstream contract for a Tendermint chain do the following.
 
