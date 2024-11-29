@@ -17,3 +17,5 @@ pgo-data.profdata
 
 .env
 .idea
+
+.gitignore
