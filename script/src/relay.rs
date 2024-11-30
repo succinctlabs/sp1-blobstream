@@ -12,7 +12,7 @@ use serde_json::json;
 
 /// Get the gas limit associated with the chain id. Note: These values have been found through
 /// trial and error and can be configured.
-pub fn get_gas_limit(chain_id: u64) -> u128 {
+pub fn get_gas_limit(chain_id: u64) -> u64 {
     if chain_id == 42161 || chain_id == 421614 {
         25_000_000
     } else {

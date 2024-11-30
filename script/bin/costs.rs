@@ -89,7 +89,6 @@ async fn get_receipts_for_chain(
         .map(|chunk_start| {
             let chunk_end = (chunk_start + ALCHEMY_CHUNK_SIZE - 1).min(end_block.1);
             let provider = provider.clone();
-            let to_addr = to_addr;
 
             async move {
                 let filter = Filter::new()
@@ -237,7 +236,7 @@ where
 
         match block_timestamp.cmp(&target_timestamp) {
             Ordering::Equal => {
-                return Ok((block.header().hash().into(), block.header().number()));
+                return Ok((block.header().hash(), block.header().number()));
             }
             Ordering::Less => low = mid + 1,
             Ordering::Greater => high = mid - 1,
@@ -251,5 +250,5 @@ where
     let Some(block) = block else {
         return Err(anyhow::anyhow!("No block found"));
     };
-    Ok((block.header().hash().into(), block.header().number()))
+    Ok((block.header().hash(), block.header().number()))
 }
