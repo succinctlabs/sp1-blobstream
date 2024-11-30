@@ -116,10 +116,9 @@ async fn get_receipts_for_chain(
     // Get the receipts for the transactions.
     let mut stream = futures::stream::iter(tx_hashes.into_iter().map(|tx_hash| {
         let provider = provider.clone();
-        async move {
-            provider.get_transaction_receipt(tx_hash).await
-        }
-    })).buffer_unordered(10);
+        async move { provider.get_transaction_receipt(tx_hash).await }
+    }))
+    .buffer_unordered(10);
 
     while let Some(receipt) = stream.next().await {
         if let Ok(Some(receipt)) = receipt {
