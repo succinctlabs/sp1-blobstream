@@ -16,8 +16,8 @@ use clap::Parser;
 use futures::StreamExt;
 use reqwest::Url;
 use std::cmp::Ordering;
-use std::env;
 use std::str::FromStr;
+use std::{env, fs};
 
 #[derive(Parser, Debug, Clone)]
 #[command(about = "Get transaction costs for an address in a given month")]
