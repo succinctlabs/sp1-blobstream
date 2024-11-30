@@ -97,28 +97,37 @@ async fn get_receipts_for_chain(
                     .to_block(chunk_end)
                     .address(to_addr)
                     .event_signature(HeadUpdate::SIGNATURE_HASH);
-
                 provider.get_logs(&filter).await
             }
         });
 
-    let logs = futures::stream::iter(chunks)
-        .buffer_unordered(10)
-        .collect::<Vec<_>>()
-        .await;
-
-    for result in logs {
+    let mut stream = futures::stream::iter(chunks).buffer_unordered(3);
+    while let Some(result) = stream.next().await {
         for log in result? {
-            tx_hashes.push(log.transaction_hash.unwrap());
+            if let Some(tx_hash) = log.transaction_hash {
+                tx_hashes.push(tx_hash);
+            }
         }
     }
 
+    println!("Collected all transaction hashes for chain {}.", chain_id);
+
     let mut all_transactions = Vec::new();
     // Get the receipts for the transactions.
-    for tx_hash in tx_hashes {
-        let receipt = provider.get_transaction_receipt(tx_hash).await?;
-        all_transactions.push(receipt.unwrap());
+    let mut stream = futures::stream::iter(tx_hashes.into_iter().map(|tx_hash| {
+        let provider = provider.clone();
+        async move {
+            provider.get_transaction_receipt(tx_hash).await
+        }
+    })).buffer_unordered(10);
+
+    while let Some(receipt) = stream.next().await {
+        if let Ok(Some(receipt)) = receipt {
+            all_transactions.push(receipt);
+        }
     }
+
+    println!("Collected all receipts for chain {}.", chain_id);
 
     Ok(all_transactions
         .into_iter()
@@ -128,7 +137,7 @@ async fn get_receipts_for_chain(
             tx_hash: receipt.transaction_hash,
             tx_fee_wei: receipt.gas_used * receipt.effective_gas_price,
             from: receipt.from,
-            to: receipt.to.unwrap(),
+            to: receipt.to.unwrap_or_default(),
         })
         .collect())
 }
@@ -190,11 +199,11 @@ async fn main() -> Result<()> {
     let total = eth_total + base_total + arbitrum_total;
 
     println!(
-        "\n{} paid the following in relaying fees in {}/{}:\n  Ethereum: {:.4} ETH\n  Base: {:.4} ETH\n  Arbitrum: {:.4} ETH\n  Total: {:.4} ETH",
+        "\n{} paid the following in SP1 Blobstream relaying fees in {}/{}:\n  Ethereum: {:.4} ETH\n  Base: {:.4} ETH\n  Arbitrum: {:.4} ETH\n  Total: {:.4} ETH",
         args.from_address, args.month, args.year, eth_total, base_total, arbitrum_total, total
     );
 
-    csv_writer.flush().unwrap();
+    csv_writer.flush()?;
     Ok(())
 }
 
@@ -210,8 +219,10 @@ where
 {
     let latest_block = provider
         .get_block(BlockId::latest(), BlockTransactionsKind::Hashes)
-        .await?
-        .unwrap();
+        .await?;
+    let Some(latest_block) = latest_block else {
+        return Err(anyhow::anyhow!("No latest block found"));
+    };
     let mut low = 0;
     let mut high = latest_block.header().number();
 
@@ -219,8 +230,10 @@ where
         let mid = (low + high) / 2;
         let block = provider
             .get_block(mid.into(), BlockTransactionsKind::Hashes)
-            .await?
-            .unwrap();
+            .await?;
+        let Some(block) = block else {
+            return Err(anyhow::anyhow!("No block found"));
+        };
         let block_timestamp = block.header().timestamp();
 
         match block_timestamp.cmp(&target_timestamp) {
@@ -235,7 +248,9 @@ where
     // Return the block hash of the closest block after the target timestamp
     let block = provider
         .get_block((low - 10).into(), BlockTransactionsKind::Hashes)
-        .await?
-        .unwrap();
+        .await?;
+    let Some(block) = block else {
+        return Err(anyhow::anyhow!("No block found"));
+    };
     Ok((block.header().hash().into(), block.header().number()))
 }
