@@ -79,22 +79,13 @@ checksum = "5c6cb57a04249c6480766f7f7cef5467412af1490f8d1e243141daddada3264f"
 
 [[package]]
 name = "alloy"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ba1c79677c9ce51c8d45e20845b05e6fb070ea2c863fba03ad6af2c778474bd"
-dependencies = [
- "alloy-core 0.7.7",
-]
-
-[[package]]
-name = "alloy"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "98452d9acf0e74c318625cbd45342c95ba6302214391baf23d28c7ae480fa80b"
 dependencies = [
  "alloy-consensus",
  "alloy-contract",
- "alloy-core 0.8.14",
+ "alloy-core",
  "alloy-eips",
  "alloy-genesis",
  "alloy-network",
@@ -172,16 +163,6 @@ dependencies = [
  "futures",
  "futures-util",
  "thiserror",
-]
-
-[[package]]
-name = "alloy-core"
-version = "0.7.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "529fc6310dc1126c8de51c376cbc59c79c7f662bd742be7dc67055d5421a81b4"
-dependencies = [
- "alloy-primitives 0.7.7",
- "alloy-sol-types 0.7.7",
 ]
 
 [[package]]
@@ -1309,7 +1290,7 @@ dependencies = [
 name = "blobstream-program"
 version = "0.1.0"
 dependencies = [
- "alloy 0.7.0",
+ "alloy",
  "primitives",
  "serde_cbor",
  "sha2 0.10.8",
@@ -1322,7 +1303,7 @@ dependencies = [
 name = "blobstream-script"
 version = "0.1.0"
 dependencies = [
- "alloy 0.7.0",
+ "alloy",
  "anyhow",
  "chrono",
  "clap",
@@ -4432,7 +4413,7 @@ dependencies = [
 name = "primitives"
 version = "0.1.0"
 dependencies = [
- "alloy 0.1.4",
+ "alloy",
  "serde",
  "tendermint",
  "tendermint-light-client-verifier",
