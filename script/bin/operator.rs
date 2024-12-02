@@ -246,7 +246,7 @@ impl SP1BlobstreamOperator {
         let current_block = contract.latestBlock().call().await?.latestBlock;
 
         // Get the head of the chain.
-        let latest_tendermint_block_nb = fetcher.get_latest_block_height().await;
+        let latest_tendermint_block_nb = fetcher.get_latest_block_height().await?;
 
         // Subtract 1 block to ensure the block is stable.
         let latest_stable_tendermint_block = latest_tendermint_block_nb - 1;
@@ -265,7 +265,7 @@ impl SP1BlobstreamOperator {
 
             let target_block = fetcher
                 .find_block_to_request(current_block, max_end_block)
-                .await;
+                .await?;
 
             info!("Current block: {}", current_block);
             info!("Attempting to step to block {}", target_block);

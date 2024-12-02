@@ -1,10 +1,11 @@
 #![allow(dead_code)]
 use crate::types::*;
 use alloy::primitives::B256;
+use anyhow::Context;
 use log::debug;
 use reqwest::Client;
 use std::sync::Arc;
-use std::{collections::HashMap, env, error::Error};
+use std::{collections::HashMap, env};
 use subtle_encoding::hex;
 use tendermint::block::Commit;
 use tendermint::validator::Set as TendermintValidatorSet;
@@ -45,23 +46,27 @@ impl TendermintRPCClient {
     }
 
     // Search to find the greatest block number to request.
-    pub async fn find_block_to_request(&self, start_block: u64, max_end_block: u64) -> u64 {
+    pub async fn find_block_to_request(
+        &self,
+        start_block: u64,
+        max_end_block: u64,
+    ) -> anyhow::Result<u64> {
         let mut curr_end_block = max_end_block;
         loop {
             if curr_end_block - start_block == 1 {
-                return curr_end_block;
+                return Ok(curr_end_block);
             }
-            let start_block_validators = self.fetch_validators(start_block).await.unwrap();
+            let start_block_validators = self.fetch_validators(start_block).await?;
             let start_validator_set = Set::new(start_block_validators, None);
-            let target_block_validators = self.fetch_validators(curr_end_block).await.unwrap();
+            let target_block_validators = self.fetch_validators(curr_end_block).await?;
             let target_validator_set = Set::new(target_block_validators, None);
-            let target_block_commit = self.fetch_commit(curr_end_block).await.unwrap();
+            let target_block_commit = self.fetch_commit(curr_end_block).await?;
             if Self::is_valid_skip(
                 start_validator_set,
                 target_validator_set,
                 target_block_commit.result.signed_header.commit,
             ) {
-                return curr_end_block;
+                return Ok(curr_end_block);
             }
             let mid_block = (curr_end_block + start_block) / 2;
             curr_end_block = mid_block;
@@ -121,15 +126,15 @@ impl TendermintRPCClient {
     }
 
     /// Retrieves the latest block height from the Tendermint node.
-    pub async fn get_latest_block_height(&self) -> u64 {
-        let latest_commit = self.fetch_latest_commit().await.unwrap();
-        latest_commit.result.signed_header.header.height.value()
+    pub async fn get_latest_block_height(&self) -> anyhow::Result<u64> {
+        let latest_commit = self.fetch_latest_commit().await?;
+        Ok(latest_commit.result.signed_header.header.height.value())
     }
 
     /// Retrieves the block height from a given block hash.
-    pub async fn get_block_height_from_hash(&self, hash: &[u8]) -> u64 {
-        let block = self.fetch_block_by_hash(hash).await.unwrap();
-        block.result.block.header.height.value()
+    pub async fn get_block_height_from_hash(&self, hash: &[u8]) -> anyhow::Result<u64> {
+        let block = self.fetch_block_by_hash(hash).await?;
+        Ok(block.result.block.header.height.value())
     }
 
     /// Sorts the signatures in the signed header based on the descending order of validators' power.
@@ -158,7 +163,7 @@ impl TendermintRPCClient {
     }
 
     /// Fetches the peer ID from the Tendermint node.
-    async fn fetch_peer_id(&self) -> Result<[u8; 20], Box<dyn Error>> {
+    async fn fetch_peer_id(&self) -> anyhow::Result<[u8; 20]> {
         let fetch_peer_id_url = format!("{}/status", self.url);
 
         let response: PeerIdResponse = self
@@ -170,13 +175,13 @@ impl TendermintRPCClient {
             .await?;
 
         Ok(hex::decode(response.result.node_info.id)
-            .unwrap()
+            .expect("Can decode hex bytes")
             .try_into()
             .unwrap())
     }
 
     /// Fetches a block by its hash.
-    async fn fetch_block_by_hash(&self, hash: &[u8]) -> Result<BlockResponse, Box<dyn Error>> {
+    async fn fetch_block_by_hash(&self, hash: &[u8]) -> anyhow::Result<BlockResponse> {
         let block_by_hash_url = format!(
             "{}/block_by_hash?hash=0x{}",
             self.url,
@@ -186,40 +191,46 @@ impl TendermintRPCClient {
             .client
             .get(block_by_hash_url)
             .send()
-            .await?
+            .await
+            .context("Bad respone while getting block by hash")?
             .json::<BlockResponse>()
-            .await?;
+            .await
+            .context("Failed to deser block response")?;
+
         Ok(response)
     }
 
     /// Fetches a light block by its hash.
-    async fn get_light_block_by_hash(&self, hash: &[u8]) -> LightBlock {
-        let block = self.fetch_block_by_hash(hash).await.unwrap();
-        let peer_id = self.fetch_peer_id().await.unwrap();
+    async fn get_light_block_by_hash(&self, hash: &[u8]) -> anyhow::Result<LightBlock> {
+        let block = self.fetch_block_by_hash(hash).await?;
+        let peer_id = self.fetch_peer_id().await?;
+
         self.fetch_light_block(
             block.result.block.header.height.value(),
-            hex::decode(peer_id).unwrap().try_into().unwrap(),
+            hex::decode(peer_id).expect("Can decode hex bytes in light block resposne").try_into().unwrap(),
         )
         .await
-        .unwrap()
     }
 
     /// Fetches the latest commit from the Tendermint node.
-    async fn fetch_latest_commit(&self) -> Result<CommitResponse, Box<dyn Error>> {
+    async fn fetch_latest_commit(&self) -> anyhow::Result<CommitResponse> {
         let url = format!("{}/commit", self.url);
 
         let response: CommitResponse = self
             .client
             .get(url)
             .send()
-            .await?
+            .await
+            .context("Bad response getting latest commit")?
             .json::<CommitResponse>()
-            .await?;
+            .await
+            .context("Failed to deser while getting latest commit")?;
+
         Ok(response)
     }
 
     /// Fetches a commit for a specific block height.
-    async fn fetch_commit(&self, block_height: u64) -> Result<CommitResponse, Box<dyn Error>> {
+    async fn fetch_commit(&self, block_height: u64) -> anyhow::Result<CommitResponse> {
         let url = format!("{}/{}", self.url, "commit");
 
         let response: CommitResponse = self
@@ -230,14 +241,17 @@ impl TendermintRPCClient {
                 ("per_page", "100"), // helpful only when fetching validators
             ])
             .send()
-            .await?
+            .await
+            .context("Bad Result getting commitments")?
             .json::<CommitResponse>()
-            .await?;
+            .await
+            .context("Failed to deser commit response")?;
+
         Ok(response)
     }
 
     /// Fetches validators for a specific block height.
-    async fn fetch_validators(&self, block_height: u64) -> Result<Vec<Info>, Box<dyn Error>> {
+    async fn fetch_validators(&self, block_height: u64) -> anyhow::Result<Vec<Info>> {
         let url = format!("{}/{}", self.url, "validators");
 
         let mut validators = vec![];
@@ -253,9 +267,12 @@ impl TendermintRPCClient {
                     ("page", page_index.to_string().as_str()),
                 ])
                 .send()
-                .await?
+                .await
+                .context("Bad response getting vaalidators")?
                 .json::<ValidatorSetResponse>()
-                .await?;
+                .await
+                .context("Failed to parse `ValidorSetResponse`")?;
+
             let block_validator_set: BlockValidatorSet = response.result;
             validators.extend(block_validator_set.validators);
             collected_validators += block_validator_set.count.parse::<i32>().unwrap();
@@ -274,7 +291,7 @@ impl TendermintRPCClient {
         &self,
         block_height: u64,
         peer_id: [u8; 20],
-    ) -> Result<LightBlock, Box<dyn Error>> {
+    ) -> anyhow::Result<LightBlock> {
         let commit_response = self.fetch_commit(block_height).await?;
         let mut signed_header = commit_response.result.signed_header;
 
@@ -331,10 +348,10 @@ impl TendermintRPCClient {
     }
 
     /// Fetches a header hash for a specific block height.
-    pub async fn fetch_header_hash(&self, block_height: u64) -> B256 {
-        let peer_id = self.fetch_peer_id().await.unwrap();
-        let light_block = self.fetch_light_block(block_height, peer_id).await.unwrap();
+    pub async fn fetch_header_hash(&self, block_height: u64) -> anyhow::Result<B256> {
+        let peer_id = self.fetch_peer_id().await?;
+        let light_block = self.fetch_light_block(block_height, peer_id).await?;
 
-        B256::from_slice(light_block.signed_header.header.hash().as_bytes())
+        Ok(B256::from_slice(light_block.signed_header.header.hash().as_bytes()))
     }
 }
