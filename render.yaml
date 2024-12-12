@@ -24,6 +24,7 @@ services:
         sync: false
       - key: PRIVATE_KEY
         sync: false
+        required: false
       - key: RPC_URL
         sync: false
       - key: SP1_PRIVATE_KEY
@@ -53,6 +54,7 @@ services:
         sync: false
       - key: PRIVATE_KEY
         sync: false
+        required: false
       - key: RPC_URL
         sync: false
       - key: SP1_PRIVATE_KEY
@@ -82,6 +84,7 @@ services:
         sync: false
       - key: PRIVATE_KEY
         sync: false
+        required: false
       - key: RPC_URL
         sync: false
       - key: SP1_PRIVATE_KEY
@@ -111,6 +114,7 @@ services:
         sync: false
       - key: PRIVATE_KEY
         sync: false
+        required: false
       - key: RPC_URL
         sync: false
       - key: SP1_PRIVATE_KEY
@@ -138,6 +142,7 @@ services:
         sync: false
       - key: PRIVATE_KEY
         sync: false
+        required: false
       - key: RPC_URL
         sync: false
       - key: SP1_PRIVATE_KEY
@@ -165,6 +170,7 @@ services:
         sync: false
       - key: PRIVATE_KEY
         sync: false
+        required: false
       - key: RPC_URL
         sync: false
       - key: SP1_PRIVATE_KEY
@@ -192,6 +198,7 @@ services:
         sync: false
       - key: PRIVATE_KEY
         sync: false
+        required: false
       - key: RPC_URL
         sync: false
       - key: SP1_PRIVATE_KEY
