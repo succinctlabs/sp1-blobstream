@@ -17,6 +17,7 @@ use blobstream_script::util::TendermintRPCClient;
 use blobstream_script::{relay, TendermintProver};
 use log::{error, info};
 use primitives::get_header_update_verdict;
+use reqwest::Url;
 use sp1_sdk::{
     HashableKey, ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
 };
@@ -42,15 +43,21 @@ type EthereumFillProvider = FillProvider<
     Ethereum,
 >;
 
+enum RelayMode {
+    Kms,
+    Local,
+}
+
 struct SP1BlobstreamOperator {
     client: ProverClient,
     pk: SP1ProvingKey,
     vk: SP1VerifyingKey,
-    wallet_filler: Arc<EthereumFillProvider>,
+    provider: Arc<RootProvider<Http<Client>>>,
     contract_address: Address,
-    relayer_address: Address,
+    relayer_address: Option<Address>,
     chain_id: u64,
-    use_kms_relayer: bool,
+    use_kms_relayer: RelayMode,
+    wallet_filler: Option<Arc<EthereumFillProvider>>,
 }
 
 sol! {
@@ -81,47 +88,63 @@ impl SP1BlobstreamOperator {
 
         let client = ProverClient::new();
         let (pk, vk) = client.setup(ELF);
-        let use_kms_relayer: bool = env::var("USE_KMS_RELAYER")
-            .unwrap_or("false".to_string())
-            .parse()
-            .unwrap();
+        let use_kms_relayer =
+            matches!(env::var("USE_KMS_RELAYER").map(|v| v.to_lowercase()), Ok(v) if v == "true");
+        let use_kms_relayer = if use_kms_relayer {
+            RelayMode::Kms
+        } else {
+            RelayMode::Local
+        };
         let chain_id: u64 = env::var("CHAIN_ID")
             .expect("CHAIN_ID not set")
             .parse()
             .unwrap();
-        let rpc_url = env::var("RPC_URL")
+        let rpc_url: Url = env::var("RPC_URL")
             .expect("RPC_URL not set")
             .parse()
             .unwrap();
 
-        let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY not set");
+        let provider = Arc::new(ProviderBuilder::new().on_http(rpc_url.clone()));
+
+        let (relayer_address, wallet_filler) = match use_kms_relayer {
+            RelayMode::Local => {
+                let private_key = env::var("PRIVATE_KEY")
+                    .expect("PRIVATE_KEY environment variable must be set when USE_KMS_RELAYER is not 'true'. Set USE_KMS_RELAYER=true to use KMS relaying instead.");
+                let signer: PrivateKeySigner = private_key.parse().expect(
+                    "Failed to parse PRIVATE_KEY - ensure it is a valid Ethereum private key",
+                );
+                let relayer_address = signer.address();
+                let wallet = EthereumWallet::from(signer);
+                let wallet_filler = ProviderBuilder::new()
+                    .with_recommended_fillers()
+                    .wallet(wallet)
+                    .on_http(rpc_url.clone());
+                (Some(relayer_address), Some(Arc::new(wallet_filler)))
+            }
+            RelayMode::Kms => (None, None),
+        };
+
         let contract_address = env::var("CONTRACT_ADDRESS")
             .expect("CONTRACT_ADDRESS not set")
             .parse()
             .unwrap();
-        let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
-        let relayer_address = signer.address();
-        let wallet = EthereumWallet::from(signer);
-        let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
-            .wallet(wallet)
-            .on_http(rpc_url);
 
         Self {
             client,
             pk,
             vk,
-            wallet_filler: Arc::new(provider),
+            provider,
             chain_id,
             contract_address,
             relayer_address,
             use_kms_relayer,
+            wallet_filler,
         }
     }
 
     /// Check the verifying key in the contract matches the verifying key in the prover.
     async fn check_vkey(&self) -> Result<()> {
-        let contract = SP1Blobstream::new(self.contract_address, self.wallet_filler.clone());
+        let contract = SP1Blobstream::new(self.contract_address, self.provider.clone());
         let verifying_key = contract
             .blobstreamProgramVkey()
             .call()
@@ -175,55 +198,61 @@ impl SP1BlobstreamOperator {
             proof.bytes()
         };
 
-        let contract = SP1Blobstream::new(self.contract_address, self.wallet_filler.clone());
-
-        if self.use_kms_relayer {
-            let proof_bytes = proof_as_bytes.clone().into();
-            let public_values = proof.public_values.to_vec().into();
-            let commit_header_range = contract.commitHeaderRange(proof_bytes, public_values);
-            relay::relay_with_kms(
-                &relay::KMSRelayRequest {
-                    chain_id: self.chain_id,
-                    address: self.contract_address.to_checksum(None),
-                    calldata: commit_header_range.calldata().to_string(),
-                    platform_request: false,
-                },
-                NUM_RELAY_RETRIES,
-            )
-            .await
-        } else {
-            let public_values_bytes = proof.public_values.to_vec();
-
-            let gas_limit = relay::get_gas_limit(self.chain_id);
-            let max_fee_per_gas =
-                relay::get_fee_cap(self.chain_id, self.wallet_filler.root()).await;
-
-            let nonce = self
-                .wallet_filler
-                .get_transaction_count(self.relayer_address)
-                .await?;
-
-            // Wait for 3 required confirmations with a timeout of 60 seconds.
-            const NUM_CONFIRMATIONS: u64 = 3;
-            const TIMEOUT_SECONDS: u64 = 60;
-            let receipt = contract
-                .commitHeaderRange(proof_as_bytes.into(), public_values_bytes.into())
-                .gas_price(max_fee_per_gas)
-                .gas(gas_limit)
-                .nonce(nonce)
-                .send()
-                .await?
-                .with_required_confirmations(NUM_CONFIRMATIONS)
-                .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
-                .get_receipt()
-                .await?;
-
-            // If status is false, it reverted.
-            if !receipt.status() {
-                error!("Transaction reverted!");
+        match self.use_kms_relayer {
+            RelayMode::Kms => {
+                let contract = SP1Blobstream::new(self.contract_address, self.provider.clone());
+                let proof_bytes = proof_as_bytes.clone().into();
+                let public_values = proof.public_values.to_vec().into();
+                let commit_header_range = contract.commitHeaderRange(proof_bytes, public_values);
+                relay::relay_with_kms(
+                    &relay::KMSRelayRequest {
+                        chain_id: self.chain_id,
+                        address: self.contract_address.to_checksum(None),
+                        calldata: commit_header_range.calldata().to_string(),
+                        platform_request: false,
+                    },
+                    NUM_RELAY_RETRIES,
+                )
+                .await
             }
+            RelayMode::Local => {
+                let public_values_bytes = proof.public_values.to_vec();
+                let wallet_filler = self
+                    .wallet_filler
+                    .as_ref()
+                    .expect("Wallet filler should be set for non-KMS relayer");
+                let contract = SP1Blobstream::new(self.contract_address, wallet_filler.clone());
+                let relayer_address = self
+                    .relayer_address
+                    .expect("Relayer address should be set for non-KMS relayer");
 
-            Ok(receipt.transaction_hash)
+                let gas_limit = relay::get_gas_limit(self.chain_id);
+                let max_fee_per_gas = relay::get_fee_cap(self.chain_id, wallet_filler.root()).await;
+
+                let nonce = wallet_filler.get_transaction_count(relayer_address).await?;
+
+                // Wait for 3 required confirmations with a timeout of 60 seconds.
+                const NUM_CONFIRMATIONS: u64 = 3;
+                const TIMEOUT_SECONDS: u64 = 60;
+                let receipt = contract
+                    .commitHeaderRange(proof_as_bytes.into(), public_values_bytes.into())
+                    .gas_price(max_fee_per_gas)
+                    .gas(gas_limit)
+                    .nonce(nonce)
+                    .send()
+                    .await?
+                    .with_required_confirmations(NUM_CONFIRMATIONS)
+                    .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
+                    .get_receipt()
+                    .await?;
+
+                // If status is false, it reverted.
+                if !receipt.status() {
+                    error!("Transaction reverted!");
+                }
+
+                Ok(receipt.transaction_hash)
+            }
         }
     }
 
@@ -233,34 +262,38 @@ impl SP1BlobstreamOperator {
         let fetcher = TendermintRPCClient::default();
         let block_update_interval = get_block_update_interval();
 
-        let contract = SP1Blobstream::new(self.contract_address, self.wallet_filler.clone());
-
-        // Read the data commitment max from the contract.
+        let contract = match self.use_kms_relayer {
+            RelayMode::Kms => SP1Blobstream::new(self.contract_address, self.provider.clone()),
+            RelayMode::Local => {
+                let wallet_filler = self
+                    .wallet_filler
+                    .as_ref()
+                    .expect("Wallet filler should be set for local mode");
+                SP1Blobstream::new(
+                    self.contract_address,
+                    Arc::new(wallet_filler.root().clone()),
+                )
+            }
+        };
         let data_commitment_max = contract
             .DATA_COMMITMENT_MAX()
             .call()
             .await?
             .DATA_COMMITMENT_MAX;
 
-        // Get the latest block from the contract.
         let current_block = contract.latestBlock().call().await?.latestBlock;
 
-        // Get the head of the chain.
         let latest_tendermint_block_nb = fetcher.get_latest_block_height().await;
 
-        // Subtract 1 block to ensure the block is stable.
         let latest_stable_tendermint_block = latest_tendermint_block_nb - 1;
 
-        // block_to_request is the closest interval of block_interval less than min(latest_stable_tendermint_block, data_commitment_max + current_block)
         let max_block = std::cmp::min(
             latest_stable_tendermint_block,
             data_commitment_max + current_block,
         );
         let block_to_request = max_block - (max_block % block_update_interval);
 
-        // If block_to_request is greater than the current block in the contract, attempt to request.
         if block_to_request > current_block {
-            // The next block the operator should request.
             let max_end_block = block_to_request;
 
             let target_block = fetcher
@@ -270,7 +303,6 @@ impl SP1BlobstreamOperator {
             info!("Current block: {}", current_block);
             info!("Attempting to step to block {}", target_block);
 
-            // Request a header range if the target block is not the next block.
             match self.request_header_range(current_block, target_block).await {
                 Ok(proof) => {
                     let tx_hash = self.relay_header_range(proof).await?;
@@ -325,8 +357,6 @@ async fn main() {
     const LOOP_TIMEOUT_MINS: u64 = 20;
     loop {
         let request_interval_mins = get_loop_interval_mins();
-        // If the operator takes longer than LOOP_TIMEOUT_MINS for a single invocation, or there's
-        // an error, sleep for the loop interval and try again.
         if let Err(e) = tokio::time::timeout(
             tokio::time::Duration::from_secs(60 * LOOP_TIMEOUT_MINS),
             operator.run(),
