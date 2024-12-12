@@ -15,10 +15,17 @@ path = "bin/genesis.rs"
 name = "operator"
 path = "bin/operator.rs"
 
+[[bin]]
+name = "vkey"
+path = "bin/vkey.rs"
+
+[[bin]]
+name = "costs"
+path = "bin/costs.rs"
 
 [dependencies]
 primitives = { path = "../primitives" }
-sp1-sdk = "1.1.1"
+sp1-sdk = "3.0.0"
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "^1.38.0", features = ["full"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -26,7 +33,7 @@ tendermint = { version = "0.35.0", default-features = false }
 tendermint-light-client-verifier = { version = "0.35.0", default-features = false, features = [
     "rust-crypto",
 ] }
-alloy = { version = "0.1.1", features = ["full"] }
+alloy = { version = "0.7.0", features = ["full"] }
 serde_cbor = "0.11.2"
 dotenv = "0.15.0"
 subtle-encoding = "0.5.1"
@@ -37,5 +44,7 @@ hex = "0.4.3"
 futures = "0.3.30"
 env_logger = "0.11.3"
 serde_json = "1"
+chrono = "0.4.38"
+csv = "1.3.1"
 [build-dependencies]
-sp1-helper = "1.1.1"
+sp1-build = "3.0.0"

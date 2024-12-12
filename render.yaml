@@ -16,6 +16,8 @@ services:
         value: 17000
       - key: CONTRACT_ADDRESS
         value: 0x315A044cb95e4d44bBf6253585FbEbcdB6fb41ef
+      - key: BLOCK_UPDATE_INTERVAL
+        value: 600
       - key: TENDERMINT_RPC_URL
         sync: false
       - key: SP1_PROVER
@@ -46,6 +48,8 @@ services:
         value: 11155111
       - key: CONTRACT_ADDRESS
         value: 0xF0c6429ebAB2e7DC6e05DaFB61128bE21f13cb1e
+      - key: BLOCK_UPDATE_INTERVAL
+        value: 600
       - key: TENDERMINT_RPC_URL
         sync: false
       - key: SP1_PROVER
@@ -76,6 +80,8 @@ services:
         value: 421614
       - key: CONTRACT_ADDRESS
         value: 0xc3e209eb245Fd59c8586777b499d6A665DF3ABD2
+      - key: BLOCK_UPDATE_INTERVAL
+        value: 600
       - key: TENDERMINT_RPC_URL
         sync: false
       - key: SP1_PROVER
@@ -106,6 +112,8 @@ services:
         value: 84532
       - key: CONTRACT_ADDRESS
         value: 0xc3e209eb245Fd59c8586777b499d6A665DF3ABD2
+      - key: BLOCK_UPDATE_INTERVAL
+        value: 600
       - key: TENDERMINT_RPC_URL
         sync: false
       - key: SP1_PROVER
@@ -134,6 +142,8 @@ services:
         value: 1
       - key: CONTRACT_ADDRESS
         value: 0x7Cf3876F681Dbb6EdA8f6FfC45D66B996Df08fAe
+      - key: BLOCK_UPDATE_INTERVAL
+        value: 900
       - key: TENDERMINT_RPC_URL
         sync: false
       - key: SP1_PROVER
@@ -162,6 +172,8 @@ services:
         value: 8453
       - key: CONTRACT_ADDRESS
         value: 0xA83ca7775Bc2889825BcDeDfFa5b758cf69e8794
+      - key: BLOCK_UPDATE_INTERVAL
+        value: 300
       - key: TENDERMINT_RPC_URL
         sync: false
       - key: SP1_PROVER
@@ -190,6 +202,8 @@ services:
         value: 42161
       - key: CONTRACT_ADDRESS
         value: 0xA83ca7775Bc2889825BcDeDfFa5b758cf69e8794
+      - key: BLOCK_UPDATE_INTERVAL
+        value: 300
       - key: TENDERMINT_RPC_URL
         sync: false
       - key: SP1_PROVER

@@ -1,0 +1,13 @@
+[book]
+authors = ["Ratan Kaliani"]
+language = "en"
+multilingual = false
+src = "book"
+title = "SP1 Blobstream Documentation"
+
+[build]
+build-dir = "target/book"
+
+[output.html]
+git-repository-url = "https://github.com/succinctlabs/sp1-blobstream"
+git-repository-icon = "fa-github"

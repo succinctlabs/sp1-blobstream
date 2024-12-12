@@ -1,7 +1,7 @@
-use sp1_helper::{build_program_with_args, BuildArgs};
+#[allow(unused_imports)]
+use sp1_build::{build_program_with_args, BuildArgs};
 
 fn main() {
-    // Note: Comment this in to build the program.
     // build_program_with_args(
     //     "../program",
     //     BuildArgs {
