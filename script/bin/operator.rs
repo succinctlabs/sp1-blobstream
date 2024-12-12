@@ -110,8 +110,7 @@ impl SP1BlobstreamOperator {
             RelayMode::Local => {
                 let private_key = env::var("PRIVATE_KEY")
                     .expect("PRIVATE_KEY environment variable must be set when USE_KMS_RELAYER is not 'true'. Set USE_KMS_RELAYER=true to use KMS relaying instead.");
-                let signer: PrivateKeySigner =
-                    private_key.parse().expect("Failed to parse PRIVATE_KEY - ensure it is a valid Ethereum private key");
+                let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse PRIVATE_KEY - ensure it is a valid Ethereum private key");
                 let relayer_address = signer.address();
                 let wallet = EthereumWallet::from(signer);
                 let wallet_filler = ProviderBuilder::new()
@@ -262,14 +261,16 @@ impl SP1BlobstreamOperator {
         let block_update_interval = get_block_update_interval();
 
         let contract = match self.use_kms_relayer {
-            RelayMode::Kms => {
-                SP1Blobstream::new(self.contract_address, self.provider.clone())
-            },
+            RelayMode::Kms => SP1Blobstream::new(self.contract_address, self.provider.clone()),
             RelayMode::Local => {
-                let wallet_filler = self.wallet_filler
+                let wallet_filler = self
+                    .wallet_filler
                     .as_ref()
                     .expect("Wallet filler should be set for local mode");
-                SP1Blobstream::new(self.contract_address, Arc::new(wallet_filler.root().clone()))
+                SP1Blobstream::new(
+                    self.contract_address,
+                    Arc::new(wallet_filler.root().clone()),
+                )
             }
         };
         let data_commitment_max = contract
