@@ -110,7 +110,9 @@ impl SP1BlobstreamOperator {
             RelayMode::Local => {
                 let private_key = env::var("PRIVATE_KEY")
                     .expect("PRIVATE_KEY environment variable must be set when USE_KMS_RELAYER is not 'true'. Set USE_KMS_RELAYER=true to use KMS relaying instead.");
-                let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse PRIVATE_KEY - ensure it is a valid Ethereum private key");
+                let signer: PrivateKeySigner = private_key.parse().expect(
+                    "Failed to parse PRIVATE_KEY - ensure it is a valid Ethereum private key",
+                );
                 let relayer_address = signer.address();
                 let wallet = EthereumWallet::from(signer);
                 let wallet_filler = ProviderBuilder::new()
