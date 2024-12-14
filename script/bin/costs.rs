@@ -16,6 +16,7 @@ use clap::Parser;
 use futures::StreamExt;
 use reqwest::Url;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::{env, fs};
 
@@ -31,6 +32,14 @@ pub struct CostScriptArgs {
     #[arg(long)]
     pub arbitrum_rpc: String,
     #[arg(long)]
+    pub sepolia_rpc: String,
+    #[arg(long)]
+    pub base_sepolia_rpc: String,
+    #[arg(long)]
+    pub arbitrum_sepolia_rpc: String,
+    #[arg(long)]
+    pub holesky_rpc: String,
+    #[arg(long)]
     pub month: u32,
     #[arg(long)]
     pub year: i32,
@@ -45,6 +54,10 @@ pub fn get_contract_address(chain_id: u64) -> Option<Address> {
         1 => Some(Address::from_str("0x7Cf3876F681Dbb6EdA8f6FfC45D66B996Df08fAe").unwrap()),
         8453 => Some(Address::from_str("0xA83ca7775Bc2889825BcDeDfFa5b758cf69e8794").unwrap()),
         42161 => Some(Address::from_str("0xA83ca7775Bc2889825BcDeDfFa5b758cf69e8794").unwrap()),
+        17000 => Some(Address::from_str("0x315A044cb95e4d44bBf6253585FbEbcdB6fb41ef").unwrap()),
+        11155111 => Some(Address::from_str("0xF0c6429ebAB2e7DC6e05DaFB61128bE21f13cb1e").unwrap()),
+        421614 => Some(Address::from_str("0xc3e209eb245Fd59c8586777b499d6A665DF3ABD2").unwrap()),
+        84532 => Some(Address::from_str("0xc3e209eb245Fd59c8586777b499d6A665DF3ABD2").unwrap()),
         _ => None,
     }
 }
@@ -150,23 +163,28 @@ async fn main() -> Result<()> {
 
     let from_addr = Address::from_str(&args.from_address).unwrap();
 
-    let (eth_transactions, base_transactions, arbitrum_transactions) = tokio::join!(
-        get_receipts_for_chain(from_addr, &args.ethereum_rpc, args.month, args.year),
-        get_receipts_for_chain(from_addr, &args.base_rpc, args.month, args.year),
-        get_receipts_for_chain(from_addr, &args.arbitrum_rpc, args.month, args.year)
-    );
-    let (eth_transactions, base_transactions, arbitrum_transactions) = (
-        eth_transactions?,
-        base_transactions?,
-        arbitrum_transactions?,
-    );
+    let chains = [
+        (&args.ethereum_rpc, "eth"),
+        (&args.base_rpc, "base"),
+        (&args.arbitrum_rpc, "arbitrum"),
+        (&args.sepolia_rpc, "sepolia"),
+        (&args.base_sepolia_rpc, "base_sepolia"),
+        (&args.arbitrum_sepolia_rpc, "arbitrum_sepolia"),
+        (&args.holesky_rpc, "holesky"),
+    ];
 
-    let all_transactions = [
-        eth_transactions.clone(),
-        base_transactions.clone(),
-        arbitrum_transactions.clone(),
-    ]
-    .concat();
+    let futures = chains
+        .iter()
+        .map(|(rpc, _)| get_receipts_for_chain(from_addr, rpc, args.month, args.year));
+
+    let results = futures::future::join_all(futures).await;
+
+    let mut transactions = HashMap::new();
+    for ((_, name), result) in chains.iter().zip(results) {
+        transactions.insert(*name, result?);
+    }
+
+    let all_transactions = transactions.values().flatten().cloned().collect::<Vec<_>>();
 
     let filename = format!("{}-{}-{}.csv", args.month, args.year, args.from_address);
     fs::create_dir_all("filtered_transactions")?;
@@ -183,16 +201,19 @@ async fn main() -> Result<()> {
         csv_writer.serialize(tx)?;
     }
 
-    let eth_total = eth_transactions
+    let eth_total = all_transactions
         .iter()
+        .filter(|tx| tx.chain_id == 1)
         .map(|tx| tx.tx_fee_wei as f64 / 1e18)
         .sum::<f64>();
-    let base_total = base_transactions
+    let base_total = all_transactions
         .iter()
+        .filter(|tx| tx.chain_id == 8453)
         .map(|tx| tx.tx_fee_wei as f64 / 1e18)
         .sum::<f64>();
-    let arbitrum_total = arbitrum_transactions
+    let arbitrum_total = all_transactions
         .iter()
+        .filter(|tx| tx.chain_id == 42161)
         .map(|tx| tx.tx_fee_wei as f64 / 1e18)
         .sum::<f64>();
     let total = eth_total + base_total + arbitrum_total;
