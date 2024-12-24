@@ -12,7 +12,7 @@ use std::env;
 use blobstream_script::util::TendermintRPCClient;
 use clap::Parser;
 use log::info;
-use sp1_sdk::{HashableKey, ProverClient};
+use sp1_sdk::{HashableKey, Prover, ProverClient};
 const BLOBSTREAMX_ELF: &[u8] = include_bytes!("../../elf/blobstream-elf");
 
 #[derive(Parser, Debug, Clone)]
@@ -30,7 +30,7 @@ pub async fn main() {
     let data_fetcher = TendermintRPCClient::default();
     let args = GenesisArgs::parse();
 
-    let client = ProverClient::new();
+    let client = ProverClient::builder().mock().build();
     let (_pk, vk) = client.setup(BLOBSTREAMX_ELF);
 
     if let Some(block) = args.block {

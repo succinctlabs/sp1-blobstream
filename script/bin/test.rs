@@ -1,7 +1,7 @@
-use blobstream_script::{TendermintProver, TENDERMINT_ELF};
+use blobstream_script::{util::TendermintRPCClient, TENDERMINT_ELF};
 use clap::Parser;
 use log::debug;
-use sp1_sdk::SP1Stdin;
+use sp1_sdk::{ProverClient, SP1Stdin};
 use tokio::runtime;
 
 #[derive(Parser, Debug)]
@@ -44,22 +44,22 @@ fn main() -> anyhow::Result<()> {
 
     let args = ScriptArgs::parse();
 
-    let prover = TendermintProver::new();
-
     let rt = runtime::Runtime::new()?;
 
     let mut stdin = SP1Stdin::new();
+    let tendermint_rpc_client = TendermintRPCClient::default();
 
     // Fetch the inputs for the proof.
     let inputs = rt.block_on(async {
-        prover
+        tendermint_rpc_client
             .fetch_input_for_blobstream_proof(args.trusted_block, args.target_block)
             .await
     });
     let encoded_proof_inputs = serde_cbor::to_vec(&inputs).unwrap();
     stdin.write_vec(encoded_proof_inputs);
 
-    let (_, report) = prover.prover_client.execute(TENDERMINT_ELF, stdin).run()?;
+    let prover_client = ProverClient::builder().mock().build();
+    let (_, report) = prover_client.execute(TENDERMINT_ELF, &stdin).run()?;
     println!("Report: {:?}", report);
     println!(
         "Total instruction count: {}",

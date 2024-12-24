@@ -1,54 +1,28 @@
 use alloy::{
-    network::{Ethereum, EthereumWallet},
+    network::EthereumWallet,
     primitives::{Address, B256},
-    providers::{
-        fillers::{
-            BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller,
-            WalletFiller,
-        },
-        Identity, Provider, ProviderBuilder, RootProvider,
-    },
+    providers::ProviderBuilder,
     signers::local::PrivateKeySigner,
     sol,
-    transports::http::{Client, Http},
 };
 use anyhow::Result;
 use blobstream_script::util::TendermintRPCClient;
-use blobstream_script::{relay, TendermintProver};
+use blobstream_script::{relay, TENDERMINT_ELF};
 use log::{error, info};
 use primitives::get_header_update_verdict;
+use reqwest::Url;
 use sp1_sdk::{
     HashableKey, ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
 };
 use std::env;
-use std::sync::Arc;
 use std::time::Duration;
 use tendermint_light_client_verifier::Verdict;
 
-const ELF: &[u8] = include_bytes!("../../elf/blobstream-elf");
-
-/// Alias the fill provider for the Ethereum network. Retrieved from the instantiation of the
-/// ProviderBuilder. Recommended method for passing around a ProviderBuilder.
-type EthereumFillProvider = FillProvider<
-    JoinFill<
-        JoinFill<
-            Identity,
-            JoinFill<GasFiller, JoinFill<BlobGasFiller, JoinFill<NonceFiller, ChainIdFiller>>>,
-        >,
-        WalletFiller<EthereumWallet>,
-    >,
-    RootProvider<Http<Client>>,
-    Http<Client>,
-    Ethereum,
->;
-
 struct SP1BlobstreamOperator {
-    client: ProverClient,
     pk: SP1ProvingKey,
     vk: SP1VerifyingKey,
-    wallet_filler: Arc<EthereumFillProvider>,
     contract_address: Address,
-    relayer_address: Address,
+    rpc_url: Url,
     chain_id: u64,
     use_kms_relayer: bool,
 }
@@ -79,8 +53,8 @@ impl SP1BlobstreamOperator {
     pub async fn new() -> Self {
         dotenv::dotenv().ok();
 
-        let client = ProverClient::new();
-        let (pk, vk) = client.setup(ELF);
+        let prover_client = ProverClient::from_env();
+        let (pk, vk) = prover_client.setup(TENDERMINT_ELF);
         let use_kms_relayer: bool = env::var("USE_KMS_RELAYER")
             .unwrap_or("false".to_string())
             .parse()
@@ -94,34 +68,25 @@ impl SP1BlobstreamOperator {
             .parse()
             .unwrap();
 
-        let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY not set");
         let contract_address = env::var("CONTRACT_ADDRESS")
             .expect("CONTRACT_ADDRESS not set")
             .parse()
             .unwrap();
-        let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
-        let relayer_address = signer.address();
-        let wallet = EthereumWallet::from(signer);
-        let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
-            .wallet(wallet)
-            .on_http(rpc_url);
 
         Self {
-            client,
             pk,
             vk,
-            wallet_filler: Arc::new(provider),
             chain_id,
+            rpc_url,
             contract_address,
-            relayer_address,
             use_kms_relayer,
         }
     }
 
     /// Check the verifying key in the contract matches the verifying key in the prover.
     async fn check_vkey(&self) -> Result<()> {
-        let contract = SP1Blobstream::new(self.contract_address, self.wallet_filler.clone());
+        let provider = ProviderBuilder::new().on_http(self.rpc_url.clone());
+        let contract = SP1Blobstream::new(self.contract_address, provider);
         let verifying_key = contract
             .blobstreamProgramVkey()
             .call()
@@ -144,10 +109,10 @@ impl SP1BlobstreamOperator {
         trusted_block: u64,
         target_block: u64,
     ) -> Result<SP1ProofWithPublicValues> {
-        let prover = TendermintProver::new();
+        let rpc_client = TendermintRPCClient::default();
         let mut stdin = SP1Stdin::new();
 
-        let inputs = prover
+        let inputs = rpc_client
             .fetch_input_for_blobstream_proof(trusted_block, target_block)
             .await;
 
@@ -159,8 +124,11 @@ impl SP1BlobstreamOperator {
         let encoded_proof_inputs = serde_cbor::to_vec(&inputs)?;
         stdin.write_vec(encoded_proof_inputs);
 
-        self.client
-            .prove(&self.pk, stdin)
+        let prover_client = ProverClient::builder().network().build();
+
+        // TODO: Add reserved strategy.
+        prover_client
+            .prove(&self.pk, &stdin)
             .plonk()
             .timeout(Duration::from_secs(PROOF_TIMEOUT_SECONDS))
             .run()
@@ -175,11 +143,11 @@ impl SP1BlobstreamOperator {
             proof.bytes()
         };
 
-        let contract = SP1Blobstream::new(self.contract_address, self.wallet_filler.clone());
-
         if self.use_kms_relayer {
             let proof_bytes = proof_as_bytes.clone().into();
             let public_values = proof.public_values.to_vec().into();
+            let provider = ProviderBuilder::new().on_http(self.rpc_url.clone());
+            let contract = SP1Blobstream::new(self.contract_address, provider);
             let commit_header_range = contract.commitHeaderRange(proof_bytes, public_values);
             relay::relay_with_kms(
                 &relay::KMSRelayRequest {
@@ -194,23 +162,20 @@ impl SP1BlobstreamOperator {
         } else {
             let public_values_bytes = proof.public_values.to_vec();
 
-            let gas_limit = relay::get_gas_limit(self.chain_id);
-            let max_fee_per_gas =
-                relay::get_fee_cap(self.chain_id, self.wallet_filler.root()).await;
-
-            let nonce = self
-                .wallet_filler
-                .get_transaction_count(self.relayer_address)
-                .await?;
-
             // Wait for 3 required confirmations with a timeout of 60 seconds.
             const NUM_CONFIRMATIONS: u64 = 3;
             const TIMEOUT_SECONDS: u64 = 60;
+            let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY not set");
+            let signer: PrivateKeySigner =
+                private_key.parse().expect("Failed to parse private key");
+            let wallet = EthereumWallet::from(signer);
+            let provider = ProviderBuilder::new()
+                .with_recommended_fillers()
+                .wallet(wallet)
+                .on_http(self.rpc_url.clone());
+            let contract = SP1Blobstream::new(self.contract_address, provider);
             let receipt = contract
                 .commitHeaderRange(proof_as_bytes.into(), public_values_bytes.into())
-                .gas_price(max_fee_per_gas)
-                .gas(gas_limit)
-                .nonce(nonce)
                 .send()
                 .await?
                 .with_required_confirmations(NUM_CONFIRMATIONS)
@@ -233,7 +198,8 @@ impl SP1BlobstreamOperator {
         let fetcher = TendermintRPCClient::default();
         let block_update_interval = get_block_update_interval();
 
-        let contract = SP1Blobstream::new(self.contract_address, self.wallet_filler.clone());
+        let provider = ProviderBuilder::new().on_http(self.rpc_url.clone());
+        let contract = SP1Blobstream::new(self.contract_address, provider);
 
         // Read the data commitment max from the contract.
         let data_commitment_max = contract

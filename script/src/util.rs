@@ -2,6 +2,7 @@
 use crate::types::*;
 use alloy::primitives::B256;
 use log::debug;
+use primitives::types::ProofInputs;
 use reqwest::Client;
 use std::sync::Arc;
 use std::{collections::HashMap, env, error::Error};
@@ -41,6 +42,27 @@ impl TendermintRPCClient {
         TendermintRPCClient {
             url,
             client: Arc::new(client),
+        }
+    }
+
+    pub async fn fetch_input_for_blobstream_proof(
+        &self,
+        trusted_block_height: u64,
+        target_block_height: u64,
+    ) -> ProofInputs {
+        let light_blocks = self
+            .fetch_light_blocks_in_range(trusted_block_height, target_block_height)
+            .await;
+
+        let mut headers = Vec::new();
+        for light_block in &light_blocks[1..light_blocks.len() - 1] {
+            headers.push(light_block.signed_header.header.clone());
+        }
+
+        ProofInputs {
+            trusted_light_block: light_blocks[0].clone(),
+            target_light_block: light_blocks[light_blocks.len() - 1].clone(),
+            headers,
         }
     }
 
