@@ -25,7 +25,7 @@ path = "bin/costs.rs"
 
 [dependencies]
 primitives = { path = "../primitives" }
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "dev" }
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "^1.38.0", features = ["full"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
