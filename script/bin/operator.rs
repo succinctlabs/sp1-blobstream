@@ -136,15 +136,8 @@ impl SP1BlobstreamOperator {
 
     /// Relay a header range proof to the SP1 Blobstream contract.
     async fn relay_header_range(&self, proof: SP1ProofWithPublicValues) -> Result<B256> {
-        // TODO: sp1_sdk should return empty bytes in mock mode.
-        let proof_as_bytes = if env::var("SP1_PROVER").unwrap().to_lowercase() == "mock" {
-            vec![]
-        } else {
-            proof.bytes()
-        };
-
         if self.use_kms_relayer {
-            let proof_bytes = proof_as_bytes.clone().into();
+            let proof_bytes = proof.bytes().into();
             let public_values = proof.public_values.to_vec().into();
             let provider = ProviderBuilder::new().on_http(self.rpc_url.clone());
             let contract = SP1Blobstream::new(self.contract_address, provider);
@@ -175,7 +168,7 @@ impl SP1BlobstreamOperator {
                 .on_http(self.rpc_url.clone());
             let contract = SP1Blobstream::new(self.contract_address, provider);
             let receipt = contract
-                .commitHeaderRange(proof_as_bytes.into(), public_values_bytes.into())
+                .commitHeaderRange(proof.bytes().into(), public_values_bytes.into())
                 .send()
                 .await?
                 .with_required_confirmations(NUM_CONFIRMATIONS)
