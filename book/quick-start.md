@@ -15,6 +15,14 @@ This guide will walk you through deploying the SP1 Blobstream contract and runni
     TENDERMINT_RPC_URL=https://rpc.lunaroasis.net/ cargo run --bin genesis --release
     ```
 
+2. Add the genesis parameters to `/contracts/.env` mirroring `contracts/.env.example`.
+
+    | Parameter | Description |
+    |-----------|-------------|
+    | GENESIS_HEIGHT | The block height of the genesis block for the Tendermint chain |
+    | GENESIS_HEADER | The header of the genesis block for the Tendermint chain |
+    | SP1_BLOBSTREAM_PROGRAM_VKEY | The verification key for the SP1 Blobstream program |
+
 2. Deploy the `SP1Blobstream` contract with genesis parameters: `GENESIS_HEIGHT`, `GENESIS_HEADER`, and `SP1_BLOBSTREAM_PROGRAM_VKEY`.
 
     ```shell
@@ -22,7 +30,7 @@ This guide will walk you through deploying the SP1 Blobstream contract and runni
 
     forge install
 
-    GENESIS_HEIGHT=<GENESIS_HEIGHT> GENESIS_HEADER=<GENESIS_HEADER> SP1_BLOBSTREAM_PROGRAM_VKEY=<SP1_BLOBSTREAM_PROGRAM_VKEY> forge script script/Deploy.s.sol --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> --etherscan-api-key <ETHERSCAN_API_KEY> --broadcast --verify
+    forge script script/Deploy.s.sol --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> --etherscan-api-key <ETHERSCAN_API_KEY> --broadcast --verify
     ```
 
     If you see the following error, add `--legacy` to the command.
