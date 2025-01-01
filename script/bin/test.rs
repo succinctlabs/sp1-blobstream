@@ -58,13 +58,10 @@ fn main() -> anyhow::Result<()> {
     let encoded_proof_inputs = serde_cbor::to_vec(&inputs).unwrap();
     stdin.write_vec(encoded_proof_inputs);
 
-    let prover_client = ProverClient::builder().mock().build();
-    let (_, report) = prover_client.execute(TENDERMINT_ELF, &stdin).run()?;
-    println!("Report: {:?}", report);
-    println!(
-        "Total instruction count: {}",
-        report.total_instruction_count()
-    );
+    let prover_client = ProverClient::from_env();
+    let (pk, vk) = prover_client.setup(TENDERMINT_ELF);
+    let proof = prover_client.prove(&pk, &stdin).groth16().run()?;
+    prover_client.verify(&proof, &vk)?;
 
     Ok(())
 }
