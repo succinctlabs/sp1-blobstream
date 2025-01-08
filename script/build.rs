@@ -7,7 +7,6 @@ fn main() {
     //     BuildArgs {
     //         docker: true,
     //         elf_name: "blobstream-elf".to_string(),
-    //         tag: "v3.0.0".to_string(),
     //         ..Default::default()
     //     },
     // )

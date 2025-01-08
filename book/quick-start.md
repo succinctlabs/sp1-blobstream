@@ -23,7 +23,7 @@ This guide will walk you through deploying the SP1 Blobstream contract and runni
     | GENESIS_HEADER | The header of the genesis block for the Tendermint chain |
     | SP1_BLOBSTREAM_PROGRAM_VKEY | The verification key for the SP1 Blobstream program |
 
-2. Deploy the `SP1Blobstream` contract with genesis parameters: `GENESIS_HEIGHT`, `GENESIS_HEADER`, and `SP1_BLOBSTREAM_PROGRAM_VKEY`.
+3. Deploy the `SP1Blobstream` contract with genesis parameters: `GENESIS_HEIGHT`, `GENESIS_HEADER`, and `SP1_BLOBSTREAM_PROGRAM_VKEY`.
 
     ```shell
     cd ../contracts
@@ -37,7 +37,8 @@ This guide will walk you through deploying the SP1 Blobstream contract and runni
     ```shell
     Error: Failed to get EIP-1559 fees    
     ```
-3. Your deployed contract address will be printed to the terminal.
+
+4. Your deployed contract address will be printed to the terminal.
 
     ```shell
     == Return ==
@@ -46,7 +47,7 @@ This guide will walk you through deploying the SP1 Blobstream contract and runni
 
     This will be used when you run the operator in step 5.
 
-4. Export your SP1 Prover Network configuration
+5. Export your SP1 Prover Network configuration
 
     ```shell
     # Export the PRIVATE_KEY you will use to relay proofs.
@@ -62,7 +63,7 @@ This guide will walk you through deploying the SP1 Blobstream contract and runni
     export SP1_PROVER=cpu
     ```
 
-5. Run the SP1 Blobstream operator to update the LC continuously.
+6. Run the SP1 Blobstream operator to update the LC continuously.
 
     ```
     cd ../script
