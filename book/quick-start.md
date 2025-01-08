@@ -52,11 +52,14 @@ This guide will walk you through deploying the SP1 Blobstream contract and runni
     # Export the PRIVATE_KEY you will use to relay proofs.
     export PRIVATE_KEY=<PRIVATE_KEY>
 
-    # Optional
-    # If you're using the Succinct network, set SP1_PROVER to "network". Otherwise, set it to "local" or "mock".
-    export SP1_PROVER={network|local|mock}
-    # Only required if SP1_PROVER is set "network".
+    # For the Succinct network, set the private key corresponding to the public key in the SP1 Prover Network.
     export NETWORK_PRIVATE_KEY=<NETWORK_PRIVATE_KEY>
+
+    # If you're using a custom RPC URL, set it here.
+    export NETWORK_RPC_URL=<NETWORK_RPC_URL>
+
+    # If you're proving locally, set the SP1_PROVER to "cpu".
+    export SP1_PROVER=cpu
     ```
 
 5. Run the SP1 Blobstream operator to update the LC continuously.
