@@ -125,8 +125,16 @@ impl SP1BlobstreamOperator {
         let encoded_proof_inputs = serde_cbor::to_vec(&inputs)?;
         stdin.write_vec(encoded_proof_inputs);
 
-        let prover_client = ProverClient::builder().network().build();
+        // If the SP1_PROVER environment variable is set to "cpu", use the CPU prover.
+        if let Ok(prover_type) = env::var("SP1_PROVER") {
+            if prover_type == "cpu" {
+                let prover_client = ProverClient::builder().cpu().build();
+                let proof = prover_client.prove(&self.pk, &stdin).plonk().run()?;
+                return Ok(proof);
+            }
+        }
 
+        let prover_client = ProverClient::builder().network().build();
         prover_client
             .prove(&self.pk, &stdin)
             .strategy(FulfillmentStrategy::Reserved)
