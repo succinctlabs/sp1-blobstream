@@ -5,13 +5,11 @@ edition = "2021"
 
 [dependencies]
 primitives = { path = "../primitives" }
-sp1-zkvm = "3.0.0"
+sp1-zkvm = "4.0.0-rc.8"
 tendermint-light-client-verifier = { version = "0.35.0", default-features = false, features = [
     "rust-crypto",
 ] }
 tendermint = "0.35.0"
 sha2 = "0.10"
 serde_cbor = "0.11.2"
-alloy = { version = "0.7.0", default-features = false, features = [
-    "sol-types",
-] }
+alloy = { workspace = true, features = ["sol-types"] }
