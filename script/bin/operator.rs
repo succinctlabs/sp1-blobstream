@@ -12,7 +12,8 @@ use log::{error, info};
 use primitives::get_header_update_verdict;
 use reqwest::Url;
 use sp1_sdk::{
-    HashableKey, ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
+    network::FulfillmentStrategy, HashableKey, ProverClient, SP1ProofWithPublicValues,
+    SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
 };
 use std::env;
 use std::time::Duration;
@@ -126,9 +127,10 @@ impl SP1BlobstreamOperator {
 
         let prover_client = ProverClient::builder().network().build();
 
-        // TODO: Add reserved strategy.
         prover_client
             .prove(&self.pk, &stdin)
+            .strategy(FulfillmentStrategy::Reserved)
+            .skip_simulation(true)
             .plonk()
             .timeout(Duration::from_secs(PROOF_TIMEOUT_SECONDS))
             .run()

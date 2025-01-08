@@ -56,7 +56,7 @@ This guide will walk you through deploying the SP1 Blobstream contract and runni
     # If you're using the Succinct network, set SP1_PROVER to "network". Otherwise, set it to "local" or "mock".
     export SP1_PROVER={network|local|mock}
     # Only required if SP1_PROVER is set "network".
-    export SP1_PRIVATE_KEY=<SP1_PRIVATE_KEY>
+    export NETWORK_PRIVATE_KEY=<NETWORK_PRIVATE_KEY>
     ```
 
 5. Run the SP1 Blobstream operator to update the LC continuously.
