@@ -1,6 +1,6 @@
 [package]
 version = "0.1.0"
-name = "blobstream-sp1-blobstream-program"
+name = "sp1-blobstream-program"
 edition = "2021"
 
 [dependencies]

@@ -1365,46 +1365,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "blobstream-sp1-blobstream-program"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "serde_cbor",
- "sha2 0.10.8",
- "sp1-blobstream-primitives",
- "sp1-zkvm",
- "tendermint",
- "tendermint-light-client-verifier",
-]
-
-[[package]]
-name = "blobstream-sp1-blobstream-script"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "anyhow",
- "chrono",
- "clap",
- "csv",
- "dotenv",
- "env_logger",
- "futures",
- "hex",
- "log",
- "reqwest 0.11.27",
- "serde",
- "serde_cbor",
- "serde_json",
- "sp1-blobstream-primitives",
- "sp1-build",
- "sp1-sdk",
- "subtle-encoding",
- "tendermint",
- "tendermint-light-client-verifier",
- "tokio",
-]
-
-[[package]]
 name = "block-buffer"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5265,6 +5225,46 @@ dependencies = [
  "serde",
  "tendermint",
  "tendermint-light-client-verifier",
+]
+
+[[package]]
+name = "sp1-blobstream-program"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "serde_cbor",
+ "sha2 0.10.8",
+ "sp1-blobstream-primitives",
+ "sp1-zkvm",
+ "tendermint",
+ "tendermint-light-client-verifier",
+]
+
+[[package]]
+name = "sp1-blobstream-script"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "chrono",
+ "clap",
+ "csv",
+ "dotenv",
+ "env_logger",
+ "futures",
+ "hex",
+ "log",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "sp1-blobstream-primitives",
+ "sp1-build",
+ "sp1-sdk",
+ "subtle-encoding",
+ "tendermint",
+ "tendermint-light-client-verifier",
+ "tokio",
 ]
 
 [[package]]
