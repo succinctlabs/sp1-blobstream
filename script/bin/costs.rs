@@ -142,7 +142,7 @@ async fn get_receipts_for_chain(
         .map(|receipt| RelayTransaction {
             chain_id,
             tx_hash: receipt.transaction_hash,
-            tx_fee_wei: receipt.gas_used * receipt.effective_gas_price,
+            tx_fee_wei: receipt.gas_used as u128 * receipt.effective_gas_price,
             from: receipt.from,
             to: receipt.to.unwrap_or_default(),
         })
