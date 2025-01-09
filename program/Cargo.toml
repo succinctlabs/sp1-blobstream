@@ -1,15 +1,13 @@
 [package]
 version = "0.1.0"
-name = "blobstream-program"
+name = "blobstream-sp1-blobstream-program"
 edition = "2021"
 
 [dependencies]
-primitives = { path = "../primitives" }
-sp1-zkvm = "4.0.0-rc.8"
-tendermint-light-client-verifier = { version = "0.35.0", default-features = false, features = [
-    "rust-crypto",
-] }
-tendermint = "0.35.0"
-sha2 = "0.10"
-serde_cbor = "0.11.2"
-alloy = { workspace = true, features = ["sol-types"] }
+sp1-blobstream-primitives = { workspace = true }
+sp1-zkvm = { workspace = true }
+tendermint-light-client-verifier = { workspace = true, default-features = false, features = ["rust-crypto"] }
+tendermint = { workspace = true, default-features = false }
+sha2 = { workspace = true }
+serde_cbor = { workspace = true }
+alloy = { workspace = true, default-features = false, features = ["sol-types"] }

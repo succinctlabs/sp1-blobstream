@@ -1,5 +1,4 @@
 use std::time::Duration;
-
 use tendermint_light_client_verifier::{
     options::Options,
     types::{LightBlock, TrustThreshold},

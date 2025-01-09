@@ -7,12 +7,11 @@
 //!
 //!
 
-use std::env;
-
 use blobstream_script::util::TendermintRPCClient;
 use clap::Parser;
 use log::info;
 use sp1_sdk::{HashableKey, Prover, ProverClient};
+use std::env;
 const BLOBSTREAMX_ELF: &[u8] = include_bytes!("../../elf/blobstream-elf");
 
 #[derive(Parser, Debug, Clone)]

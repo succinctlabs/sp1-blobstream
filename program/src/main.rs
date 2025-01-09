@@ -1,19 +1,15 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use alloy::primitives::B256;
-use alloy::primitives::U256;
-use alloy::sol;
-use alloy::sol_types::SolType;
-use primitives::get_header_update_verdict;
-use primitives::types::ProofInputs;
-use primitives::types::ProofOutputs;
+use alloy::{primitives::B256, primitives::U256, sol, sol_types::SolType};
 use sha2::Sha256;
-use std::collections::HashSet;
-use std::ops::Add;
+use sp1_blobstream_primitives::{
+    get_header_update_verdict,
+    types::{ProofInputs, ProofOutputs},
+};
+use std::{collections::HashSet, ops::Add};
 use tendermint::{block::Header, merkle::simple_hash_from_byte_vectors};
-use tendermint_light_client_verifier::types::LightBlock;
-use tendermint_light_client_verifier::Verdict;
+use tendermint_light_client_verifier::{types::LightBlock, Verdict};
 type DataRootTuple = sol! {
     tuple(uint64, bytes32)
 };

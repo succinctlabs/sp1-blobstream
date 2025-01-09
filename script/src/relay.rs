@@ -1,11 +1,8 @@
-use std::env;
-use std::str::FromStr;
-use std::time::Duration;
-
 use alloy::primitives::B256;
 use anyhow::Result;
 use log::info;
 use serde::{Deserialize, Serialize};
+use std::{env, str::FromStr, time::Duration};
 
 #[derive(Serialize, Deserialize)]
 pub enum KMSRelayStatus {
