@@ -6,11 +6,11 @@ use alloy::{
     sol,
 };
 use anyhow::Result;
-use blobstream_script::util::TendermintRPCClient;
-use blobstream_script::{relay, TENDERMINT_ELF};
 use log::{error, info};
-use primitives::get_header_update_verdict;
 use reqwest::Url;
+use sp1_blobstream_primitives::get_header_update_verdict;
+use sp1_blobstream_script::util::TendermintRPCClient;
+use sp1_blobstream_script::{relay, TENDERMINT_ELF};
 use sp1_sdk::{
     network::FulfillmentStrategy, HashableKey, ProverClient, SP1ProofWithPublicValues,
     SP1ProvingKey, SP1Stdin, SP1VerifyingKey,

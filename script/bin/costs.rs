@@ -1,13 +1,12 @@
-use alloy::eips::BlockId;
-use alloy::network::primitives::HeaderResponse;
-use alloy::rpc::types::{BlockTransactionsKind, Filter};
-use alloy::sol;
-use alloy::sol_types::SolEvent;
 use alloy::{
     consensus::BlockHeader,
-    network::BlockResponse,
+    eips::BlockId,
+    network::{primitives::HeaderResponse, BlockResponse},
     primitives::{Address, B256},
     providers::{Network, Provider, ProviderBuilder},
+    rpc::types::{BlockTransactionsKind, Filter},
+    sol,
+    sol_types::SolEvent,
     transports::Transport,
 };
 use anyhow::Result;
@@ -15,10 +14,7 @@ use chrono::{TimeZone, Utc};
 use clap::Parser;
 use futures::StreamExt;
 use reqwest::Url;
-use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::{env, fs};
+use std::{cmp::Ordering, collections::HashMap, env, fs, str::FromStr};
 
 #[derive(Parser, Debug, Clone)]
 #[command(about = "Get transaction costs for an address in a given month")]
@@ -146,7 +142,7 @@ async fn get_receipts_for_chain(
         .map(|receipt| RelayTransaction {
             chain_id,
             tx_hash: receipt.transaction_hash,
-            tx_fee_wei: receipt.gas_used * receipt.effective_gas_price,
+            tx_fee_wei: receipt.gas_used as u128 * receipt.effective_gas_price,
             from: receipt.from,
             to: receipt.to.unwrap_or_default(),
         })
