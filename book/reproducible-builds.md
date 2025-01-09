@@ -6,7 +6,7 @@ When deploying SP1 Blobstream in production, it's important to ensure that the p
 
 ## Prerequisites
 
-You first need to install the [cargo prove](https://docs.succinct.xyz/getting-started/install.html#option-1-prebuilt-binaries-recommended) toolchain.
+You first need to install the [cargo prove](https://docs.succinct.xyz/docs/getting-started/install.html#option-1-prebuilt-binaries-recommended) toolchain.
 
 Ensure that you have the latest version of the toolchain by running:
 
