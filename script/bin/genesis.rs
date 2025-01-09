@@ -7,9 +7,9 @@
 //!
 //!
 
-use sp1_blobstream_script::util::TendermintRPCClient;
 use clap::Parser;
 use log::info;
+use sp1_blobstream_script::util::TendermintRPCClient;
 use sp1_sdk::{HashableKey, Prover, ProverClient};
 use std::env;
 const BLOBSTREAMX_ELF: &[u8] = include_bytes!("../../elf/blobstream-elf");

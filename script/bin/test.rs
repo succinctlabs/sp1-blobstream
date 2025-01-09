@@ -1,6 +1,6 @@
-use sp1_blobstream_script::{util::TendermintRPCClient, TENDERMINT_ELF};
 use clap::Parser;
 use log::debug;
+use sp1_blobstream_script::{util::TendermintRPCClient, TENDERMINT_ELF};
 use sp1_sdk::{ProverClient, SP1Stdin};
 use tokio::runtime;
 

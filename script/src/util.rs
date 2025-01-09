@@ -2,8 +2,8 @@
 use crate::types::*;
 use alloy::primitives::B256;
 use log::debug;
-use sp1_blobstream_primitives::types::ProofInputs;
 use reqwest::Client;
+use sp1_blobstream_primitives::types::ProofInputs;
 use std::sync::Arc;
 use std::{collections::HashMap, env, error::Error};
 use subtle_encoding::hex;
