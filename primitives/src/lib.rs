@@ -19,6 +19,12 @@ pub fn get_header_update_verdict(trusted_block: &LightBlock, target_block: &Ligh
 
     let vp = ProdVerifier::default();
 
+    // Check the next validators hash is correct.
+    assert_eq!(
+        trusted_block.next_validators.hash(),
+        trusted_block.as_trusted_state().next_validators_hash
+    );
+
     // Note: The zkVM has no notion of time, so no header will be rejected for being too
     // far in the past, which is a potential issue. Deployers must ensure that the target block is not
     // too far in the past, i.e. the light client must be relatively synced with the chain (i.e.
