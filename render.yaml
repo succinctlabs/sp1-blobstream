@@ -2,7 +2,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mocha:holesky
-    repo: https://github.com/succinctlabs/sp1-blobstream
+    repo: https://github.com/succinctlabs/sp1-blobstream-private
     region: frankfurt
     plan: pro
     rootDir: script
@@ -33,7 +33,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mocha:sepolia
-    repo: https://github.com/succinctlabs/sp1-blobstream
+    repo: https://github.com/succinctlabs/sp1-blobstream-private
     region: frankfurt
     plan: pro
     rootDir: script
@@ -64,7 +64,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mocha:arbsepolia
-    repo: https://github.com/succinctlabs/sp1-blobstream
+    repo: https://github.com/succinctlabs/sp1-blobstream-private
     region: frankfurt
     plan: pro
     rootDir: script
@@ -95,7 +95,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mocha:basesepolia
-    repo: https://github.com/succinctlabs/sp1-blobstream
+    repo: https://github.com/succinctlabs/sp1-blobstream-private
     region: frankfurt
     plan: pro
     rootDir: script
@@ -213,7 +213,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mainnet:scroll
-    repo: https://github.com/succinctlabs/sp1-blobstream
+    repo: https://github.com/succinctlabs/sp1-blobstream-private
     region: frankfurt
     plan: pro
     rootDir: script
