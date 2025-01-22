@@ -86,6 +86,7 @@ impl SP1BlobstreamOperator {
 
     /// Check the verifying key in the contract matches the verifying key in the prover.
     async fn check_vkey(&self) -> Result<()> {
+        println!("Checking vkey here");
         let provider = ProviderBuilder::new().on_http(self.rpc_url.clone());
         let contract = SP1Blobstream::new(self.contract_address, provider);
         let verifying_key = contract
@@ -197,6 +198,7 @@ impl SP1BlobstreamOperator {
 
     async fn run(&self) -> Result<()> {
         self.check_vkey().await?;
+        println!("vkey check passed");
 
         let fetcher = TendermintRPCClient::default();
         let block_update_interval = get_block_update_interval();
@@ -296,14 +298,17 @@ async fn main() {
         let request_interval_mins = get_loop_interval_mins();
         // If the operator takes longer than LOOP_TIMEOUT_MINS for a single invocation, or there's
         // an error, sleep for the loop interval and try again.
-        if let Err(e) = tokio::time::timeout(
-            tokio::time::Duration::from_secs(60 * LOOP_TIMEOUT_MINS),
-            operator.run(),
-        )
-        .await
-        {
-            error!("Error running operator: {}", e);
+        tokio::select! {
+            _ = tokio::time::sleep(tokio::time::Duration::from_secs(60 * LOOP_TIMEOUT_MINS)) => {
+                continue;
+            }
+            e = operator.run() => {
+                if let Err(e) = e {
+                    error!("Error running operator: {}", e);
+                }
+            }
         }
+
         tokio::time::sleep(tokio::time::Duration::from_secs(60 * request_interval_mins)).await;
     }
 }
