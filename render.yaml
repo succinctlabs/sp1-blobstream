@@ -126,7 +126,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mainnet:ethereum
-    repo: https://github.com/succinctlabs/sp1-blobstream
+    repo: https://github.com/succinctlabs/sp1-blobstream-private
     region: frankfurt
     plan: pro
     rootDir: script
@@ -155,7 +155,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mainnet:base
-    repo: https://github.com/succinctlabs/sp1-blobstream
+    repo: https://github.com/succinctlabs/sp1-blobstream-private
     region: frankfurt
     plan: pro
     rootDir: script
@@ -184,7 +184,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mainnet:arbitrum
-    repo: https://github.com/succinctlabs/sp1-blobstream
+    repo: https://github.com/succinctlabs/sp1-blobstream-private
     region: frankfurt
     plan: pro
     rootDir: script
