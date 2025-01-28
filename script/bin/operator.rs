@@ -86,7 +86,6 @@ impl SP1BlobstreamOperator {
 
     /// Check the verifying key in the contract matches the verifying key in the prover.
     async fn check_vkey(&self) -> Result<()> {
-        println!("Checking vkey here");
         let provider = ProviderBuilder::new().on_http(self.rpc_url.clone());
         let contract = SP1Blobstream::new(self.contract_address, provider);
         let verifying_key = contract
@@ -198,7 +197,6 @@ impl SP1BlobstreamOperator {
 
     async fn run(&self) -> Result<()> {
         self.check_vkey().await?;
-        println!("vkey check passed");
 
         let fetcher = TendermintRPCClient::default();
         let block_update_interval = get_block_update_interval();
