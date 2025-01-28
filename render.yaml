@@ -2,7 +2,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mocha:holesky
-    repo: https://github.com/succinctlabs/sp1-blobstream-private
+    repo: https://github.com/succinctlabs/sp1-blobstream
     region: frankfurt
     plan: pro
     rootDir: script
@@ -33,7 +33,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mocha:sepolia
-    repo: https://github.com/succinctlabs/sp1-blobstream-private
+    repo: https://github.com/succinctlabs/sp1-blobstream
     region: frankfurt
     plan: pro
     rootDir: script
@@ -64,7 +64,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mocha:arbsepolia
-    repo: https://github.com/succinctlabs/sp1-blobstream-private
+    repo: https://github.com/succinctlabs/sp1-blobstream
     region: frankfurt
     plan: pro
     rootDir: script
@@ -95,7 +95,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mocha:basesepolia
-    repo: https://github.com/succinctlabs/sp1-blobstream-private
+    repo: https://github.com/succinctlabs/sp1-blobstream
     region: frankfurt
     plan: pro
     rootDir: script
@@ -126,7 +126,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mainnet:ethereum
-    repo: https://github.com/succinctlabs/sp1-blobstream-private
+    repo: https://github.com/succinctlabs/sp1-blobstream
     region: frankfurt
     plan: pro
     rootDir: script
@@ -155,7 +155,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mainnet:base
-    repo: https://github.com/succinctlabs/sp1-blobstream-private
+    repo: https://github.com/succinctlabs/sp1-blobstream
     region: frankfurt
     plan: pro
     rootDir: script
@@ -184,7 +184,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mainnet:arbitrum
-    repo: https://github.com/succinctlabs/sp1-blobstream-private
+    repo: https://github.com/succinctlabs/sp1-blobstream
     region: frankfurt
     plan: pro
     rootDir: script
@@ -213,7 +213,7 @@ services:
   - type: worker
     runtime: rust
     name: sp1-blobstream-mainnet:scroll
-    repo: https://github.com/succinctlabs/sp1-blobstream-private
+    repo: https://github.com/succinctlabs/sp1-blobstream
     region: frankfurt
     plan: pro
     rootDir: script
