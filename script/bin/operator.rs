@@ -113,9 +113,11 @@ impl SP1BlobstreamOperator {
         let rpc_client = TendermintRPCClient::default();
         let mut stdin = SP1Stdin::new();
 
+        info!("Fetching inputs for proof.");
         let inputs = rpc_client
             .fetch_input_for_blobstream_proof(trusted_block, target_block)
             .await;
+        info!("Inputs fetched for proof.");
 
         // Simulate the step from the trusted block to the target block.
         let verdict =
