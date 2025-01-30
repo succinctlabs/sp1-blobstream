@@ -17,11 +17,11 @@ This guide will walk you through deploying the SP1 Blobstream contract and runni
 
 2. Add the genesis parameters to `/contracts/.env` mirroring `contracts/.env.example`.
 
-    | Parameter | Description |
-    |-----------|-------------|
-    | GENESIS_HEIGHT | The block height of the genesis block for the Tendermint chain |
-    | GENESIS_HEADER | The header of the genesis block for the Tendermint chain |
-    | SP1_BLOBSTREAM_PROGRAM_VKEY | The verification key for the SP1 Blobstream program |
+| Parameter                     | Description                                                    |
+| ----------------------------- | -------------------------------------------------------------- |
+| `GENESIS_HEIGHT`              | The block height of the genesis block for the Tendermint chain |
+| `GENESIS_HEADER`              | The header of the genesis block for the Tendermint chain       |
+| `SP1_BLOBSTREAM_PROGRAM_VKEY` | The verification key for the SP1 Blobstream program            |
 
 3. Deploy the `SP1Blobstream` contract with genesis parameters: `GENESIS_HEIGHT`, `GENESIS_HEADER`, and `SP1_BLOBSTREAM_PROGRAM_VKEY`.
 
