@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 use crate::types::*;
 use alloy::primitives::B256;
-use futures::{stream, StreamExt};
-use log::debug;
+use futures::stream::FuturesOrdered;
+use futures::StreamExt;
 use reqwest::Client;
 use sp1_blobstream_primitives::types::ProofInputs;
 use std::sync::Arc;
@@ -34,7 +34,10 @@ impl Default for TendermintRPCClient {
 const DEFAULT_TENDERMINT_RPC_TIMEOUT_SECS: u64 = 20;
 
 /// The default concurrency for Tendermint RPC requests.
-const DEFAULT_TENDERMINT_RPC_CONCURRENCY: usize = 100;
+const DEFAULT_TENDERMINT_RPC_CONCURRENCY: usize = 50;
+
+/// The default sleep duration for Tendermint RPC requests in milliseconds.
+const DEFAULT_TENDERMINT_RPC_SLEEP_MS: u64 = 1250;
 
 impl TendermintRPCClient {
     pub fn new(url: String) -> Self {
@@ -58,6 +61,7 @@ impl TendermintRPCClient {
         let (trusted_light_block, target_light_block) = self
             .get_light_blocks(trusted_block_height, target_block_height)
             .await;
+
         let headers = self
             .get_headers_in_range(trusted_block_height + 1, target_block_height - 1)
             .await;
@@ -93,28 +97,6 @@ impl TendermintRPCClient {
         }
     }
 
-    /// Fetches all light blocks for the given range of block heights. Inclusive of start and end.
-    pub async fn fetch_light_blocks_in_range(
-        &self,
-        start_height: u64,
-        end_height: u64,
-    ) -> Vec<LightBlock> {
-        let peer_id = self.fetch_peer_id().await.unwrap();
-        debug!(
-            "Fetching light blocks in range: {} to {}",
-            start_height, end_height
-        );
-
-        let blocks = stream::iter(start_height..=end_height)
-            .map(|height| async move { self.fetch_light_block(height, peer_id).await.unwrap() })
-            .buffered(DEFAULT_TENDERMINT_RPC_CONCURRENCY)
-            .collect::<Vec<_>>()
-            .await;
-
-        debug!("Finished fetching light blocks!");
-        blocks
-    }
-
     /// Retrieves light blocks for the trusted and target block heights.
     pub async fn get_light_blocks(
         &self,
@@ -142,13 +124,33 @@ impl TendermintRPCClient {
 
     /// Retrieves the headers for the given range of block heights. Inclusive of start and end.
     pub async fn get_headers_in_range(&self, start_height: u64, end_height: u64) -> Vec<Header> {
-        let mut headers = Vec::new();
-        let headers_stream = stream::iter(start_height..=end_height)
-            .map(|height| async move { self.get_block(height).await.header })
-            .buffered(DEFAULT_TENDERMINT_RPC_CONCURRENCY)
-            .collect::<Vec<_>>()
+        let mut headers = Vec::with_capacity(((end_height - start_height) + 1) as usize);
+
+        let mut next_batch_start = start_height;
+        while next_batch_start <= end_height {
+            // Top of the range is non-inclusive so max out at `end_height + 1`.
+            let batch_end = std::cmp::min(
+                next_batch_start + DEFAULT_TENDERMINT_RPC_CONCURRENCY as u64,
+                end_height + 1,
+            );
+
+            // Chunk the range into batches of DEFAULT_TENDERMINT_RPC_CONCURRENCY.
+            let batch_headers = (next_batch_start..batch_end)
+                .map(|height| async move { self.get_block(height).await.header })
+                .collect::<FuturesOrdered<_>>()
+                .collect::<Vec<_>>()
+                .await;
+
+            headers.extend(batch_headers);
+            next_batch_start = batch_end;
+
+            // Sleep for 1.25 seconds to avoid rate limiting.
+            tokio::time::sleep(std::time::Duration::from_millis(
+                DEFAULT_TENDERMINT_RPC_SLEEP_MS,
+            ))
             .await;
-        headers.extend(headers_stream);
+        }
+
         headers
     }
 
@@ -254,6 +256,7 @@ impl TendermintRPCClient {
             .await?
             .json::<CommitResponse>()
             .await?;
+
         Ok(response)
     }
 
