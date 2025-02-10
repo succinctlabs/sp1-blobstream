@@ -16,23 +16,6 @@ struct ScriptArgs {
     target_block: u64,
 }
 
-pub async fn get_data_commitment(start_block: u64, end_block: u64) {
-    // If start_block == end_block, then return a dummy commitment.
-    // This will occur in the context of data commitment's map reduce when leaves that contain blocks beyond the end_block.
-
-    let route = format!(
-        "data_commitment?start={}&end={}",
-        start_block.to_string().as_str(),
-        end_block.to_string().as_str()
-    );
-
-    let url = format!("{}/{}", "https://rpc.lunaroasis.net/", route);
-
-    let res = reqwest::get(url.clone()).await;
-
-    debug!("Data Commitment Response: {:?}", res.unwrap())
-}
-
 /// Generate a proof between the given trusted and target blocks.
 /// Example:
 /// ```
