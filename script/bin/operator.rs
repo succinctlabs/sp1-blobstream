@@ -15,8 +15,8 @@ use sp1_sdk::{
     network::FulfillmentStrategy, HashableKey, ProverClient, SP1ProofWithPublicValues,
     SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
 };
-use std::env;
 use std::time::Duration;
+use std::{env, panic::AssertUnwindSafe};
 use tendermint_light_client_verifier::Verdict;
 
 struct SP1BlobstreamOperator {
@@ -198,6 +198,17 @@ impl SP1BlobstreamOperator {
     }
 
     async fn run(&self) -> Result<()> {
+        match futures::future::FutureExt::catch_unwind(AssertUnwindSafe(self.run_inner())).await {
+            Ok(Ok(_)) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(e) => {
+                error!("Operator panicked: {:?}", e);
+                Err(anyhow::anyhow!("Operator panicked while executing"))
+            }
+        }
+    }
+
+    async fn run_inner(&self) -> Result<()> {
         self.check_vkey().await?;
 
         let fetcher = TendermintRPCClient::default();
