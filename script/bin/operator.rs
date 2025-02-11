@@ -237,7 +237,7 @@ impl SP1BlobstreamOperator {
 
             let target_block = fetcher
                 .find_block_to_request(current_block, max_end_block)
-                .await;
+                .await?;
 
             info!("Current block: {}", current_block);
             info!("Attempting to step to block {}", target_block);
@@ -252,7 +252,8 @@ impl SP1BlobstreamOperator {
                     );
                 }
                 Err(e) => {
-                    return Err(anyhow::anyhow!("Header range request failed: {}", e));
+                    error!("Header range request failed: {}", e);
+                    return Err(e);
                 }
             };
         } else {

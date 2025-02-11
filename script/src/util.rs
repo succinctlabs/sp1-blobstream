@@ -35,7 +35,7 @@ impl Default for TendermintRPCClient {
 const DEFAULT_TENDERMINT_RPC_TIMEOUT_SECS: u64 = 20;
 
 /// The default concurrency for Tendermint RPC requests.
-const DEFAULT_TENDERMINT_RPC_CONCURRENCY: usize = 50;
+const DEFAULT_TENDERMINT_RPC_CONCURRENCY: usize = 25;
 
 /// The default sleep duration for Tendermint RPC requests in milliseconds.
 const DEFAULT_TENDERMINT_RPC_SLEEP_MS: u64 = 1250;
@@ -78,23 +78,27 @@ impl TendermintRPCClient {
     }
 
     // Search to find the greatest block number to request.
-    pub async fn find_block_to_request(&self, start_block: u64, max_end_block: u64) -> u64 {
+    pub async fn find_block_to_request(
+        &self,
+        start_block: u64,
+        max_end_block: u64,
+    ) -> anyhow::Result<u64> {
         let mut curr_end_block = max_end_block;
         loop {
             if curr_end_block - start_block == 1 {
-                return curr_end_block;
+                return Ok(curr_end_block);
             }
-            let start_block_validators = self.fetch_validators(start_block).await.unwrap();
+            let start_block_validators = self.fetch_validators(start_block).await?;
             let start_validator_set = Set::new(start_block_validators, None);
-            let target_block_validators = self.fetch_validators(curr_end_block).await.unwrap();
+            let target_block_validators = self.fetch_validators(curr_end_block).await?;
             let target_validator_set = Set::new(target_block_validators, None);
-            let target_block_commit = self.fetch_commit(curr_end_block).await.unwrap();
+            let target_block_commit = self.fetch_commit(curr_end_block).await?;
             if Self::is_valid_skip(
                 start_validator_set,
                 target_validator_set,
                 target_block_commit.result.signed_header.commit,
             ) {
-                return curr_end_block;
+                return Ok(curr_end_block);
             }
             let mid_block = (curr_end_block + start_block) / 2;
             curr_end_block = mid_block;
@@ -168,7 +172,7 @@ impl TendermintRPCClient {
                     failures += 1;
                 }
 
-                log::error!(
+                log::debug!(
                     "Got errors fetching headers, successful header count: {}",
                     err
                 );
