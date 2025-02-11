@@ -156,6 +156,12 @@ impl TendermintRPCClient {
                 end_height + 1,
             );
 
+            log::info!(
+                "Fetching headers from {} to {}",
+                next_batch_start,
+                batch_end - 1,
+            );
+
             // Chunk the range into batches of DEFAULT_TENDERMINT_RPC_CONCURRENCY.
             let batch_headers: Vec<anyhow::Result<Header>> = (next_batch_start..batch_end)
                 .map(|height| async move { Ok(self.get_block(height).await?.header) })
