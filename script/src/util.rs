@@ -6,7 +6,7 @@ use futures::StreamExt;
 use reqwest::Client;
 use sp1_blobstream_primitives::types::ProofInputs;
 use std::sync::Arc;
-use std::{collections::HashMap, env, error::Error};
+use std::{collections::HashMap, env};
 use subtle_encoding::hex;
 use tendermint::block::{Commit, Header};
 use tendermint::validator::Set as TendermintValidatorSet;
@@ -39,6 +39,9 @@ const DEFAULT_TENDERMINT_RPC_CONCURRENCY: usize = 50;
 /// The default sleep duration for Tendermint RPC requests in milliseconds.
 const DEFAULT_TENDERMINT_RPC_SLEEP_MS: u64 = 1250;
 
+/// The maximum number of failures allowed when fetching block headers.
+const DEFAULT_TENDERMINT_RPC_MAX_FAILURES: u32 = 5;
+
 impl TendermintRPCClient {
     pub fn new(url: String) -> Self {
         let client = Client::builder()
@@ -64,7 +67,8 @@ impl TendermintRPCClient {
 
         let headers = self
             .get_headers_in_range(trusted_block_height + 1, target_block_height - 1)
-            .await;
+            .await
+            .unwrap();
 
         ProofInputs {
             trusted_light_block,
@@ -117,17 +121,29 @@ impl TendermintRPCClient {
     }
 
     /// Retrieves the block from the Tendermint node.
-    pub async fn get_block(&self, height: u64) -> Block {
-        let block = self.fetch_block_by_height(height).await.unwrap();
-        block.result.block
+    pub async fn get_block(&self, height: u64) -> anyhow::Result<Block> {
+        let block = self.fetch_block_by_height(height).await?;
+        Ok(block.result.block)
     }
 
     /// Retrieves the headers for the given range of block heights. Inclusive of start and end.
-    pub async fn get_headers_in_range(&self, start_height: u64, end_height: u64) -> Vec<Header> {
+    pub async fn get_headers_in_range(
+        &self,
+        start_height: u64,
+        end_height: u64,
+    ) -> anyhow::Result<Vec<Header>> {
         let mut headers = Vec::with_capacity(((end_height - start_height) + 1) as usize);
 
+        let mut failures: u32 = 0;
         let mut next_batch_start = start_height;
+
         while next_batch_start <= end_height {
+            if failures == DEFAULT_TENDERMINT_RPC_MAX_FAILURES {
+                return Err(anyhow::anyhow!(
+                    "Got too many failures attempting to fetch block headers."
+                ));
+            }
+
             // Top of the range is non-inclusive so max out at `end_height + 1`.
             let batch_end = std::cmp::min(
                 next_batch_start + DEFAULT_TENDERMINT_RPC_CONCURRENCY as u64,
@@ -135,23 +151,41 @@ impl TendermintRPCClient {
             );
 
             // Chunk the range into batches of DEFAULT_TENDERMINT_RPC_CONCURRENCY.
-            let batch_headers = (next_batch_start..batch_end)
-                .map(|height| async move { self.get_block(height).await.header })
+            let batch_headers: Vec<anyhow::Result<Header>> = (next_batch_start..batch_end)
+                .map(|height| async move { Ok(self.get_block(height).await?.header) })
                 .collect::<FuturesOrdered<_>>()
                 .collect::<Vec<_>>()
                 .await;
 
-            headers.extend(batch_headers);
-            next_batch_start = batch_end;
+            // Check if we got any errors.
+            let first_err = batch_headers.iter().position(|h| h.is_err());
+
+            if let Some(err) = first_err {
+                failures += 1;
+
+                // Bump the start of the next batch by the number of successful headers in this batch.
+                next_batch_start += err as u64;
+
+                // Extend the headers with the headers that were not err.
+                headers.extend(batch_headers.into_iter().take(err).map(Result::unwrap));
+            } else {
+                // There are no errors, so we reset the failure count to 0.
+                failures = 0;
+
+                next_batch_start = batch_end;
+
+                // Extend the headers with all of the headers in this batch.
+                headers.extend(batch_headers.into_iter().map(Result::unwrap));
+            }
 
             // Sleep for 1.25 seconds to avoid rate limiting.
             tokio::time::sleep(std::time::Duration::from_millis(
-                DEFAULT_TENDERMINT_RPC_SLEEP_MS,
+                DEFAULT_TENDERMINT_RPC_SLEEP_MS * 2_u64.pow(failures),
             ))
             .await;
         }
 
-        headers
+        Ok(headers)
     }
 
     /// Retrieves the latest block height from the Tendermint node.
@@ -192,7 +226,7 @@ impl TendermintRPCClient {
     }
 
     /// Fetches the peer ID from the Tendermint node.
-    async fn fetch_peer_id(&self) -> Result<[u8; 20], Box<dyn Error>> {
+    async fn fetch_peer_id(&self) -> anyhow::Result<[u8; 20]> {
         let fetch_peer_id_url = format!("{}/status", self.url);
 
         let response: PeerIdResponse = self
@@ -210,7 +244,7 @@ impl TendermintRPCClient {
     }
 
     /// Fetches a block by its hash.
-    async fn fetch_block_by_hash(&self, hash: &[u8]) -> Result<BlockResponse, Box<dyn Error>> {
+    async fn fetch_block_by_hash(&self, hash: &[u8]) -> anyhow::Result<BlockResponse> {
         let block_by_hash_url = format!(
             "{}/block_by_hash?hash=0x{}",
             self.url,
@@ -239,14 +273,14 @@ impl TendermintRPCClient {
     }
 
     /// Fetches the block by its height.
-    async fn fetch_block_by_height(&self, height: u64) -> Result<BlockResponse, Box<dyn Error>> {
+    async fn fetch_block_by_height(&self, height: u64) -> anyhow::Result<BlockResponse> {
         let url = format!("{}/block?height={}", self.url, height);
         let response: BlockResponse = self.client.get(url).send().await?.json().await?;
         Ok(response)
     }
 
     /// Fetches the latest commit from the Tendermint node.
-    async fn fetch_latest_commit(&self) -> Result<CommitResponse, Box<dyn Error>> {
+    async fn fetch_latest_commit(&self) -> anyhow::Result<CommitResponse> {
         let url = format!("{}/commit", self.url);
 
         let response: CommitResponse = self
@@ -261,7 +295,7 @@ impl TendermintRPCClient {
     }
 
     /// Fetches a commit for a specific block height.
-    async fn fetch_commit(&self, block_height: u64) -> Result<CommitResponse, Box<dyn Error>> {
+    async fn fetch_commit(&self, block_height: u64) -> anyhow::Result<CommitResponse> {
         let url = format!("{}/{}", self.url, "commit");
 
         let response: CommitResponse = self
@@ -279,7 +313,7 @@ impl TendermintRPCClient {
     }
 
     /// Fetches validators for a specific block height.
-    async fn fetch_validators(&self, block_height: u64) -> Result<Vec<Info>, Box<dyn Error>> {
+    async fn fetch_validators(&self, block_height: u64) -> anyhow::Result<Vec<Info>> {
         let url = format!("{}/{}", self.url, "validators");
 
         let mut validators = vec![];
@@ -316,7 +350,7 @@ impl TendermintRPCClient {
         &self,
         block_height: u64,
         peer_id: [u8; 20],
-    ) -> Result<LightBlock, Box<dyn Error>> {
+    ) -> anyhow::Result<LightBlock> {
         let commit_response = self.fetch_commit(block_height).await?;
         let mut signed_header = commit_response.result.signed_header;
 
