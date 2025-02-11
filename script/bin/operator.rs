@@ -298,15 +298,18 @@ async fn main() {
     const LOOP_TIMEOUT_MINS: u64 = 20;
     loop {
         let request_interval_mins = get_loop_interval_mins();
-        // If the operator takes longer than LOOP_TIMEOUT_MINS for a single invocation, or there's
-        // an error, sleep for the loop interval and try again.
         tokio::select! {
             _ = tokio::time::sleep(tokio::time::Duration::from_secs(60 * LOOP_TIMEOUT_MINS)) => {
+                log::error!("Operator took longer than {} minutes to run.", LOOP_TIMEOUT_MINS);
                 continue;
             }
             e = operator.run() => {
                 if let Err(e) = e {
+                    // Sleep for less time on errors.
                     error!("Error running operator: {}", e);
+
+                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+                    continue;
                 }
             }
         }
