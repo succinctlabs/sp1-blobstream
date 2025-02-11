@@ -37,7 +37,7 @@ serde = { workspace = true }
 serde_cbor = { workspace = true }
 dotenv = { workspace = true }
 subtle-encoding = { workspace = true }
-anyhow = { workspace = true }
+anyhow.workspace = true
 clap = { workspace = true }
 log = { workspace = true }
 hex = { workspace = true }
