@@ -163,10 +163,13 @@ impl TendermintRPCClient {
             let first_err = batch_headers.iter().position(|h| h.is_err());
 
             if let Some(err) = first_err {
-                failures += 1;
+                // If we got at least one result, then it doesnt count as a failure.
+                if err == 0 {
+                    failures += 1;
+                }
 
                 log::error!(
-                    "Got error fetching headers, successful header count: {}",
+                    "Got errors fetching headers, successful header count: {}",
                     err
                 );
 
