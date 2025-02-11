@@ -172,6 +172,7 @@ impl TendermintRPCClient {
                 // There are no errors, so we reset the failure count to 0.
                 failures = 0;
 
+                // The next start should be the (not included) end of this batch.
                 next_batch_start = batch_end;
 
                 // Extend the headers with all of the headers in this batch.
