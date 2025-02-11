@@ -163,6 +163,8 @@ impl TendermintRPCClient {
             if let Some(err) = first_err {
                 failures += 1;
 
+                log::error!("Got error fetching headers: {}", err);
+
                 // Bump the start of the next batch by the number of successful headers in this batch.
                 next_batch_start += err as u64;
 
