@@ -33,7 +33,11 @@ pub async fn main() {
     let (_pk, vk) = client.setup(BLOBSTREAMX_ELF);
 
     if let Some(block) = args.block {
-        let header_hash = data_fetcher.fetch_header_hash(block).await;
+        let header_hash = data_fetcher
+            .fetch_header_hash(block)
+            .await
+            .expect("Failed to fetch genesis header hash");
+
         info!(
             "\nGENESIS_HEIGHT={:?}\nGENESIS_HEADER={}\nSP1_BLOBSTREAM_PROGRAM_VKEY={}\n",
             block,
@@ -42,7 +46,11 @@ pub async fn main() {
         );
     } else {
         let latest_block_height = data_fetcher.get_latest_block_height().await;
-        let header_hash = data_fetcher.fetch_header_hash(latest_block_height).await;
+
+        let header_hash = data_fetcher
+            .fetch_header_hash(latest_block_height)
+            .await
+            .expect("Failed to fetch latest block header hash");
 
         info!(
             "\nGENESIS_HEIGHT={:?}\nGENESIS_HEADER={}\nSP1_BLOBSTREAM_PROGRAM_VKEY={}\n",

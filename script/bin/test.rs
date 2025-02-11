@@ -37,6 +37,7 @@ fn main() -> anyhow::Result<()> {
         tendermint_rpc_client
             .fetch_input_for_blobstream_proof(args.trusted_block, args.target_block)
             .await
+            .expect("Failed to fetch proof inputs")
     });
     let encoded_proof_inputs = serde_cbor::to_vec(&inputs).unwrap();
     stdin.write_vec(encoded_proof_inputs);
