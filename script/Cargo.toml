@@ -46,6 +46,7 @@ env_logger = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }
 csv = { workspace = true }
+async-trait = "0.1.86"
 
 [build-dependencies]
 sp1-build = "4.0.0-rc.8"

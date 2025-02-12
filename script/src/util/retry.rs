@@ -23,7 +23,7 @@ pub struct RetryFuture<F> {
     tries: u32,
     base_delay: Duration,
     attempts: u32,
-    sleep: Option<Pin<Box<dyn Future<Output = ()>>>>,
+    sleep: Option<Pin<Box<dyn Future<Output = ()> + Send>>>,
 }
 
 impl<F> RetryFuture<F> {

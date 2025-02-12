@@ -66,9 +66,9 @@ pub async fn relay_with_kms(args: &KMSRelayRequest, num_retries: u32) -> Result<
 async fn send_kms_relay_request(args: &KMSRelayRequest) -> Result<KMSRelayResponse> {
     info!("Sending KMS relay request: {:?}", args);
 
-    // Read relayer endpoint from env
     let relayer_endpoint = env::var("SECURE_RELAYER_ENDPOINT")
         .map_err(|_| anyhow::anyhow!("SECURE_RELAYER_ENDPOINT not set"))?;
+
     let api_key = env::var("SECURE_RELAYER_API_KEY")
         .map_err(|_| anyhow::anyhow!("SECURE_RELAYER_API_KEY not set"))?;
 
