@@ -21,7 +21,7 @@ impl<T: Future> Retry for T {
 pub struct RetryFuture<F> {
     inner: F,
     tries: u32,
-    base_delay: Option<Duration>,
+    base_delay: Duration,
     attempts: u32,
     sleep: Option<Pin<Box<dyn Future<Output = ()>>>>,
 }
@@ -32,7 +32,7 @@ impl<F> RetryFuture<F> {
         Self {
             inner,
             tries,
-            base_delay: Some(base_delay),
+            base_delay,
             attempts: 0,
             sleep: None,
         }
@@ -66,11 +66,9 @@ where
                     return Poll::Ready(Err(e));
                 }
 
-                if let Some(base_delay) = this.base_delay {
-                    this.sleep = Some(Box::pin(tokio::time::sleep(
-                        base_delay * 2_u32.pow(this.attempts),
-                    )));
-                }
+                this.sleep = Some(Box::pin(tokio::time::sleep(
+                    this.base_delay * 2_u32.pow(this.attempts),
+                )));
 
                 Poll::Pending
             }
