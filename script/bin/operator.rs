@@ -116,7 +116,8 @@ impl SP1BlobstreamOperator {
         info!("Fetching inputs for proof.");
         let inputs = rpc_client
             .fetch_input_for_blobstream_proof(trusted_block, target_block)
-            .await;
+            .await?;
+
         info!("Inputs fetched for proof.");
 
         // Simulate the step from the trusted block to the target block.
@@ -217,7 +218,7 @@ impl SP1BlobstreamOperator {
         let current_block = contract.latestBlock().call().await?.latestBlock;
 
         // Get the head of the chain.
-        let latest_tendermint_block_nb = fetcher.get_latest_block_height().await;
+        let latest_tendermint_block_nb = fetcher.get_latest_block_height().await?;
 
         // Subtract 1 block to ensure the block is stable.
         let latest_stable_tendermint_block = latest_tendermint_block_nb - 1;
@@ -236,7 +237,7 @@ impl SP1BlobstreamOperator {
 
             let target_block = fetcher
                 .find_block_to_request(current_block, max_end_block)
-                .await;
+                .await?;
 
             info!("Current block: {}", current_block);
             info!("Attempting to step to block {}", target_block);
@@ -251,7 +252,8 @@ impl SP1BlobstreamOperator {
                     );
                 }
                 Err(e) => {
-                    return Err(anyhow::anyhow!("Header range request failed: {}", e));
+                    error!("Header range request failed: {}", e);
+                    return Err(e);
                 }
             };
         } else {
@@ -274,15 +276,9 @@ fn get_loop_interval_mins() -> u64 {
 }
 
 fn get_block_update_interval() -> u64 {
-    let block_update_interval_env = env::var("BLOCK_UPDATE_INTERVAL");
-    let mut block_update_interval = 360;
-    if block_update_interval_env.is_ok() {
-        block_update_interval = block_update_interval_env
-            .unwrap()
-            .parse::<u64>()
-            .expect("invalid BLOCK_UPDATE_INTERVAL");
-    }
-    block_update_interval
+    env::var("BLOCK_UPDATE_INTERVAL")
+        .map(|i| i.parse().expect("Couldnt parse BLOCK_UPDATE_INTERVAL"))
+        .unwrap_or(360)
 }
 
 #[tokio::main]
@@ -296,15 +292,18 @@ async fn main() {
     const LOOP_TIMEOUT_MINS: u64 = 20;
     loop {
         let request_interval_mins = get_loop_interval_mins();
-        // If the operator takes longer than LOOP_TIMEOUT_MINS for a single invocation, or there's
-        // an error, sleep for the loop interval and try again.
         tokio::select! {
             _ = tokio::time::sleep(tokio::time::Duration::from_secs(60 * LOOP_TIMEOUT_MINS)) => {
+                log::error!("Operator took longer than {} minutes to run.", LOOP_TIMEOUT_MINS);
                 continue;
             }
             e = operator.run() => {
                 if let Err(e) = e {
-                    error!("Error running operator: {}", e);
+                    // Sleep for less time on errors.
+                    error!("Error running operator: {:?}", e);
+
+                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+                    continue;
                 }
             }
         }
