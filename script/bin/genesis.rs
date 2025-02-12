@@ -45,7 +45,10 @@ pub async fn main() {
             vk.bytes32(),
         );
     } else {
-        let latest_block_height = data_fetcher.get_latest_block_height().await;
+        let latest_block_height = data_fetcher
+            .get_latest_block_height()
+            .await
+            .expect("Can get latest block hash");
 
         let header_hash = data_fetcher
             .fetch_header_hash(latest_block_height)
