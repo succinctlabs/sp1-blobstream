@@ -4,7 +4,6 @@ use futures::stream::FuturesOrdered;
 use futures::StreamExt;
 use sp1_blobstream_primitives::types::ProofInputs;
 use std::collections::HashMap;
-use subtle_encoding::hex;
 use tendermint::block::{Commit, Header};
 use tendermint::validator::Set as TendermintValidatorSet;
 use tendermint::Block;
@@ -12,6 +11,7 @@ use tendermint::{block::signed_header::SignedHeader, node::Id, validator::Set};
 use tendermint_light_client_verifier::types::{LightBlock, ValidatorSet};
 
 mod retry;
+pub use retry::{Retry, RetryFuture};
 
 use crate::tendermint::{
     TendermintRPCClient, DEFAULT_FAILURES_ALLOWED, DEFAULT_TENDERMINT_RPC_CONCURRENCY,
@@ -159,10 +159,7 @@ pub async fn get_headers_in_range(
         }
 
         // Sleep for 1.25 seconds to avoid rate limiting.
-        tokio::time::sleep(std::time::Duration::from_millis(
-            DEFAULT_TENDERMINT_RPC_SLEEP_MS * 2_u64.pow(failures),
-        ))
-        .await;
+        tokio::time::sleep(DEFAULT_TENDERMINT_RPC_SLEEP_MS * 2_u32.pow(failures)).await;
     }
 
     Ok(headers)

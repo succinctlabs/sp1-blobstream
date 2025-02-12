@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use futures::ready;
 
-trait Retry: Sized {
+pub trait Retry: Sized {
     /// Retry a fallible future `times` times, with a starting delay of `base_delay`,
     /// and an exponential backoff.
     fn retry(self, times: u32, base_delay: Duration) -> RetryFuture<Self>;
@@ -18,7 +18,7 @@ impl<T: Future> Retry for T {
     }
 }
 
-struct RetryFuture<F> {
+pub struct RetryFuture<F> {
     inner: F,
     tries: u32,
     base_delay: Option<Duration>,
