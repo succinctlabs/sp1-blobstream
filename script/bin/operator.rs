@@ -218,7 +218,7 @@ impl SP1BlobstreamOperator {
         let current_block = contract.latestBlock().call().await?.latestBlock;
 
         // Get the head of the chain.
-        let latest_tendermint_block_nb = fetcher.get_latest_block_height().await;
+        let latest_tendermint_block_nb = fetcher.get_latest_block_height().await?;
 
         // Subtract 1 block to ensure the block is stable.
         let latest_stable_tendermint_block = latest_tendermint_block_nb - 1;
@@ -276,15 +276,9 @@ fn get_loop_interval_mins() -> u64 {
 }
 
 fn get_block_update_interval() -> u64 {
-    let block_update_interval_env = env::var("BLOCK_UPDATE_INTERVAL");
-    let mut block_update_interval = 360;
-    if block_update_interval_env.is_ok() {
-        block_update_interval = block_update_interval_env
-            .unwrap()
-            .parse::<u64>()
-            .expect("invalid BLOCK_UPDATE_INTERVAL");
-    }
-    block_update_interval
+    env::var("BLOCK_UPDATE_INTERVAL")
+        .map(|i| i.parse().expect("Couldnt parse BLOCK_UPDATE_INTERVAL"))
+        .unwrap_or(360)
 }
 
 #[tokio::main]
@@ -306,7 +300,7 @@ async fn main() {
             e = operator.run() => {
                 if let Err(e) = e {
                     // Sleep for less time on errors.
-                    error!("Error running operator: {}", e);
+                    error!("Error running operator: {:?}", e);
 
                     tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
                     continue;

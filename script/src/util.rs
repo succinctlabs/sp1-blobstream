@@ -159,7 +159,7 @@ impl TendermintRPCClient {
             log::info!(
                 "Fetching headers from {} to {}",
                 next_batch_start,
-                batch_end - 1,
+                batch_end - 1
             );
 
             // Chunk the range into batches of DEFAULT_TENDERMINT_RPC_CONCURRENCY.
@@ -210,15 +210,23 @@ impl TendermintRPCClient {
     }
 
     /// Retrieves the latest block height from the Tendermint node.
-    pub async fn get_latest_block_height(&self) -> u64 {
-        let latest_commit = self.fetch_latest_commit().await.unwrap();
-        latest_commit.result.signed_header.header.height.value()
+    pub async fn get_latest_block_height(&self) -> anyhow::Result<u64> {
+        let latest_commit = self
+            .fetch_latest_commit()
+            .await
+            .context("Failed to fetch latest commit for black hash")?;
+
+        Ok(latest_commit.result.signed_header.header.height.value())
     }
 
     /// Retrieves the block height from a given block hash.
-    pub async fn get_block_height_from_hash(&self, hash: &[u8]) -> u64 {
-        let block = self.fetch_block_by_hash(hash).await.unwrap();
-        block.result.block.header.height.value()
+    pub async fn get_block_height_from_hash(&self, hash: &[u8]) -> anyhow::Result<u64> {
+        let block = self
+            .fetch_block_by_hash(hash)
+            .await
+            .context("Failed to fetch block by hash")?;
+
+        Ok(block.result.block.header.height.value())
     }
 
     /// Sorts the signatures in the signed header based on the descending order of validators' power.
@@ -317,13 +325,14 @@ impl TendermintRPCClient {
     async fn fetch_latest_commit(&self) -> anyhow::Result<CommitResponse> {
         let url = format!("{}/commit", self.url);
 
-        Ok(self
-            .client
+        self.client
             .get(url)
             .send()
-            .await?
+            .await
+            .context("Failed to call latest commit endpoint")?
             .json::<CommitResponse>()
-            .await?)
+            .await
+            .context("Failed to parse latest commit response")
     }
 
     /// Fetches a commit for a specific block height.
