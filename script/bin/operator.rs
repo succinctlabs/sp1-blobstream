@@ -9,7 +9,10 @@ use anyhow::Result;
 use log::{error, info};
 use reqwest::Url;
 use sp1_blobstream_primitives::get_header_update_verdict;
-use sp1_blobstream_script::util::TendermintRPCClient;
+use sp1_blobstream_script::util::{
+    fetch_input_for_blobstream_proof, find_block_to_request, get_latest_block_height,
+};
+use sp1_blobstream_script::TendermintRPCClient;
 use sp1_blobstream_script::{relay, TENDERMINT_ELF};
 use sp1_sdk::{
     network::FulfillmentStrategy, HashableKey, ProverClient, SP1ProofWithPublicValues,
@@ -114,9 +117,8 @@ impl SP1BlobstreamOperator {
         let mut stdin = SP1Stdin::new();
 
         info!("Fetching inputs for proof.");
-        let inputs = rpc_client
-            .fetch_input_for_blobstream_proof(trusted_block, target_block)
-            .await?;
+        let inputs =
+            fetch_input_for_blobstream_proof(&rpc_client, trusted_block, target_block).await?;
 
         info!("Inputs fetched for proof.");
 
@@ -201,7 +203,7 @@ impl SP1BlobstreamOperator {
     async fn run(&self) -> Result<()> {
         self.check_vkey().await?;
 
-        let fetcher = TendermintRPCClient::default();
+        let client = TendermintRPCClient::default();
         let block_update_interval = get_block_update_interval();
 
         let provider = ProviderBuilder::new().on_http(self.rpc_url.clone());
@@ -218,7 +220,7 @@ impl SP1BlobstreamOperator {
         let current_block = contract.latestBlock().call().await?.latestBlock;
 
         // Get the head of the chain.
-        let latest_tendermint_block_nb = fetcher.get_latest_block_height().await?;
+        let latest_tendermint_block_nb = get_latest_block_height(&client).await?;
 
         // Subtract 1 block to ensure the block is stable.
         let latest_stable_tendermint_block = latest_tendermint_block_nb - 1;
@@ -235,9 +237,7 @@ impl SP1BlobstreamOperator {
             // The next block the operator should request.
             let max_end_block = block_to_request;
 
-            let target_block = fetcher
-                .find_block_to_request(current_block, max_end_block)
-                .await?;
+            let target_block = find_block_to_request(&client, current_block, max_end_block).await?;
 
             info!("Current block: {}", current_block);
             info!("Attempting to step to block {}", target_block);

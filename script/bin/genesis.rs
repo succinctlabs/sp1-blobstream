@@ -9,7 +9,8 @@
 
 use clap::Parser;
 use log::info;
-use sp1_blobstream_script::util::TendermintRPCClient;
+use sp1_blobstream_script::util::*;
+use sp1_blobstream_script::TendermintRPCClient;
 use sp1_sdk::{HashableKey, Prover, ProverClient};
 use std::env;
 const BLOBSTREAMX_ELF: &[u8] = include_bytes!("../../elf/blobstream-elf");
@@ -33,8 +34,7 @@ pub async fn main() {
     let (_pk, vk) = client.setup(BLOBSTREAMX_ELF);
 
     if let Some(block) = args.block {
-        let header_hash = data_fetcher
-            .fetch_header_hash(block)
+        let header_hash = fetch_header_hash(&data_fetcher, block)
             .await
             .expect("Failed to fetch genesis header hash");
 
@@ -45,13 +45,11 @@ pub async fn main() {
             vk.bytes32(),
         );
     } else {
-        let latest_block_height = data_fetcher
-            .get_latest_block_height()
+        let latest_block_height = get_latest_block_height(&data_fetcher)
             .await
             .expect("Can get latest block hash");
 
-        let header_hash = data_fetcher
-            .fetch_header_hash(latest_block_height)
+        let header_hash = fetch_header_hash(&data_fetcher, latest_block_height)
             .await
             .expect("Failed to fetch latest block header hash");
 
