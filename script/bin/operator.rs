@@ -1,14 +1,12 @@
 use alloy::{
-    consensus::SignableTransaction,
-    network::{EthereumWallet, Network, ReceiptResponse, TxSigner},
+    network::{EthereumWallet, Network, ReceiptResponse},
     primitives::{Address, B256},
     providers::{Provider, ProviderBuilder},
-    signers::{local::PrivateKeySigner, Signer},
+    signers::local::PrivateKeySigner,
     sol,
     transports::Transport,
 };
 use anyhow::Result;
-use log::{error, info};
 use sp1_blobstream_primitives::get_header_update_verdict;
 use sp1_blobstream_script::util::{
     fetch_input_for_blobstream_proof, find_block_to_request, get_latest_block_height,
@@ -22,8 +20,10 @@ use sp1_sdk::{
 use std::{env, sync::Arc};
 use std::{marker::PhantomData, time::Duration};
 use tendermint_light_client_verifier::Verdict;
+use tracing::{error, info, Instrument};
+use tracing_subscriber::EnvFilter;
 
-use signer::MaybeSigner;
+use sp1_blobstream_script::util::signer::MaybeWallet;
 
 sol! {
     #[allow(missing_docs)]
@@ -69,7 +69,6 @@ impl<P: Provider<T, N>, T: Transport + Clone, N: Network> SP1BlobstreamOperator<
     ///
     /// # Panics
     /// - If the chain id cannot be retrieved from the provider.
-    /// - If the signer is not provided and were not using the KMS relayer.
     pub async fn new(
         provider: P,
         contract_address: Address,
@@ -199,6 +198,7 @@ impl<P: Provider<T, N>, T: Transport + Clone, N: Network> SP1BlobstreamOperator<
 
     async fn run(&self) -> Result<()> {
         self.check_vkey().await?;
+        tracing::info!("Vkey check passed");
 
         let client = TendermintRPCClient::default();
         let block_update_interval = get_block_update_interval();
@@ -210,12 +210,15 @@ impl<P: Provider<T, N>, T: Transport + Clone, N: Network> SP1BlobstreamOperator<
             .call()
             .await?
             .DATA_COMMITMENT_MAX;
+        tracing::debug!("Data commitment max: {}", data_commitment_max);
 
         // Get the latest block from the contract.
         let current_block = contract.latestBlock().call().await?.latestBlock;
+        tracing::debug!("Current block: {}", current_block);
 
         // Get the head of the chain.
         let latest_tendermint_block_nb = get_latest_block_height(&client).await?;
+        tracing::debug!("Latest tendermint block: {}", latest_tendermint_block_nb);
 
         // Subtract 1 block to ensure the block is stable.
         let latest_stable_tendermint_block = latest_tendermint_block_nb - 1;
@@ -288,7 +291,7 @@ impl ChainConfig {
     ///
     /// If neither are set, it will try to use [`Self::from_env`].
     fn fetch() -> Result<Vec<Self>> {
-        const DEFAULT_PATH: &str = "../chains.json";
+        const DEFAULT_PATH: &str = "chains.json";
 
         let path = env::var("CHAINS_PATH").unwrap_or(DEFAULT_PATH.to_string());
 
@@ -297,13 +300,16 @@ impl ChainConfig {
 
     /// Tries to read from the `CHAINS` environment variable.
     fn from_env() -> Result<Vec<Self>> {
-        let chains = env::var("CHAINS").expect("CHAINS not set.");
+        let chains = env::var("CHAINS")?;
 
         Ok(serde_json::from_str(&chains)?)
     }
 
     fn from_file(path: &str) -> Result<Vec<Self>> {
-        let file = std::fs::read_to_string(path)?;
+        tracing::debug!("Reading chains from file: {}", path);
+
+        let file = std::fs::read_to_string(path)
+            .inspect_err(|e| println!("Error reading file: {:?}", e))?;
 
         Ok(serde_json::from_str(&file)?)
     }
@@ -312,21 +318,22 @@ impl ChainConfig {
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
-    env_logger::init();
 
-    let prover = ProverClient::builder().cpu().build();
-    let (pk, vk) = prover.setup(TENDERMINT_ELF);
-    let pk = Arc::new(pk);
+    // Setup tracing.
+    tracing_subscriber::fmt::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
 
     // Succinct deployments use the `CHAINS` environment variable.
-    let config = ChainConfig::from_env().expect("Failed to fetch chain config.");
+    let config = ChainConfig::fetch().expect("Failed to fetch chain config");
     let maybe_private_key: Option<PrivateKeySigner> = env::var("PRIVATE_KEY")
         .ok()
         .map(|s| s.parse().expect("Failed to parse PRIVATE_KEY"));
 
+    // Setup the KMS relayer config.
     let use_kms_relayer: bool = env::var("USE_KMS_RELAYER")
         .map(|s| s.parse().expect("USE_KMS_RELAYER failed to parse"))
-        .expect("USE_KMS_RELAYER not set.");
+        .expect("USE_KMS_RELAYER not set");
 
     // Ensure we have a signer if we're not using the KMS relayer.
     if !use_kms_relayer && maybe_private_key.is_none() {
@@ -334,7 +341,12 @@ async fn main() {
     }
 
     // Setup our signer.
-    let signer = EthereumWallet::new(MaybeSigner::new(maybe_private_key));
+    let signer = MaybeWallet::new(maybe_private_key.map(EthereumWallet::new));
+
+    // Setup the prover and program keys.
+    let prover = ProverClient::builder().cpu().build();
+    let (pk, vk) = prover.setup(TENDERMINT_ELF);
+    let pk = Arc::new(pk);
 
     // Setup all the tasks.
     // These futures should never resolve, so we just await them in the main thread.
@@ -348,6 +360,8 @@ async fn main() {
             let vk = vk.clone();
 
             tokio::task::spawn(async move {
+                tracing::info!("Starting operator for chain {}", c.name);
+
                 let operator = SP1BlobstreamOperator::new(
                     provider,
                     c.blobstream_address,
@@ -359,12 +373,13 @@ async fn main() {
 
                 loop {
                     let request_interval_mins = get_loop_interval_mins();
+
                     tokio::select! {
                         _ = tokio::time::sleep(tokio::time::Duration::from_secs(60 * LOOP_TIMEOUT_MINS)) => {
-                            log::error!("Operator took longer than {} minutes to run.", LOOP_TIMEOUT_MINS);
+                            tracing::error!("Operator took longer than {} minutes to run.", LOOP_TIMEOUT_MINS);
                             continue;
                         }
-                        e = operator.run() => {
+                        e = operator.run().instrument(tracing::span!(tracing::Level::INFO, "operator", chain = c.name)) => {
                             if let Err(e) = e {
                                 // Sleep for less time on errors.
                                 error!("Error running operator: {:?}", e);
@@ -383,50 +398,5 @@ async fn main() {
     // Run all the tasks.
     futures::future::try_join_all(handles).await.unwrap();
 
-    error!("All operators finished.");
-}
-
-mod signer {
-    use alloy::{consensus::SignableTransaction, network::TxSigner, primitives::Address};
-    use std::marker::PhantomData;
-
-    /// A signer than panics if called and not set.
-    pub struct MaybeSigner<Sig, S> {
-        signer: Option<S>,
-        _phantom: PhantomData<Sig>,
-    }
-
-    impl<Sig, S> MaybeSigner<Sig, S> {
-        pub fn new(signer: Option<S>) -> Self {
-            Self {
-                signer,
-                _phantom: PhantomData,
-            }
-        }
-    }
-
-    #[async_trait::async_trait]
-    impl<Sig, S> TxSigner<Sig> for MaybeSigner<Sig, S>
-    where
-        S: TxSigner<Sig> + Send + Sync,
-        Sig: Send + Sync,
-    {
-        fn address(&self) -> Address {
-            self.signer
-                .as_ref()
-                .expect("Signer should be set")
-                .address()
-        }
-
-        async fn sign_transaction(
-            &self,
-            tx: &mut dyn SignableTransaction<Sig>,
-        ) -> alloy::signers::Result<Sig> {
-            self.signer
-                .as_ref()
-                .expect("Signer should be set")
-                .sign_transaction(tx)
-                .await
-        }
-    }
+    info!("All operators finished.");
 }

@@ -8,11 +8,12 @@
 //!
 
 use clap::Parser;
-use log::info;
 use sp1_blobstream_script::util::*;
 use sp1_blobstream_script::TendermintRPCClient;
 use sp1_sdk::{HashableKey, Prover, ProverClient};
 use std::env;
+use tracing::info;
+use tracing_subscriber::EnvFilter;
 const BLOBSTREAMX_ELF: &[u8] = include_bytes!("../../elf/blobstream-elf");
 
 #[derive(Parser, Debug, Clone)]
@@ -26,7 +27,12 @@ pub struct GenesisArgs {
 pub async fn main() {
     env::set_var("RUST_LOG", "info");
     dotenv::dotenv().ok();
-    env_logger::init();
+
+    // Setup tracing.
+    tracing_subscriber::fmt::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
+
     let data_fetcher = TendermintRPCClient::default();
     let args = GenesisArgs::parse();
 

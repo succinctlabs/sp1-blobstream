@@ -45,8 +45,11 @@ where
 {
     type Output = F::Output;
 
+    /// Sleep this future in between failures.
+    ///
+    /// If `tries` failures occur, return the error.
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // SAFTEY: We are not using self after this point, and this we dont move the inner future.
+        // SAFTEY: The inner future is not moved, everything else is unpin.
         let this = unsafe { self.get_unchecked_mut() };
 
         if let Some(sleep) = &mut this.sleep {
@@ -55,7 +58,7 @@ where
             this.sleep = None;
         }
 
-        // SAFTEY: we havent moved the inner future, only taken references.
+        // SAFTEY: The inner future is not moved, everything else is unpin.
         let inner = unsafe { Pin::new_unchecked(&mut this.inner) };
         match ready!(inner.poll(cx)) {
             Ok(output) => Poll::Ready(Ok(output)),

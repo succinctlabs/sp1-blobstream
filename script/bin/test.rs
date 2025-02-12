@@ -1,9 +1,9 @@
 use clap::Parser;
-use log::debug;
 use sp1_blobstream_script::util::fetch_input_for_blobstream_proof;
 use sp1_blobstream_script::{TendermintRPCClient, TENDERMINT_ELF};
 use sp1_sdk::{ProverClient, SP1Stdin};
 use tokio::runtime;
+use tracing::debug;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]

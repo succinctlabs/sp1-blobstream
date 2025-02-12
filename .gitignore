@@ -20,3 +20,5 @@ pgo-data.profdata
 
 filtered_transactions/**.csv
 filtered_transactions
+
+chains.json

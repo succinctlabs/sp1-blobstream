@@ -115,7 +115,7 @@ pub async fn get_headers_in_range(
             end_height + 1,
         );
 
-        log::info!(
+        tracing::info!(
             "Fetching headers from {} to {}",
             next_batch_start,
             batch_end - 1
@@ -137,7 +137,7 @@ pub async fn get_headers_in_range(
                 failures += 1;
             }
 
-            log::debug!(
+            tracing::debug!(
                 "Got errors fetching headers, successful header count: {}",
                 err
             );
@@ -211,25 +211,6 @@ fn sort_signatures_by_validators_power_desc(
         power_b.cmp(power_a)
     });
 }
-
-// /// Fetches a light block by its hash.
-// async fn get_light_block_by_hash(
-//     client: &TendermintRPCClient,
-//     hash: &[u8],
-// ) -> anyhow::Result<LightBlock> {
-//     log::trace!("Fetching light block by hash: {:?}", hash);
-
-//     let block = client.fetch_block_by_hash(hash).await?;
-//     let peer_id = client.fetch_peer_id().await?;
-
-//     fetch_light_block(
-//         client,
-//         block.result.block.header.height.value(),
-//         hex::decode(peer_id).unwrap().try_into().unwrap(),
-//     )
-//     .await
-//     .context("Failed to fetch light block by hash")
-// }
 
 /// Fetches a light block for a specific block height and peer ID.
 async fn fetch_light_block(
@@ -310,4 +291,61 @@ pub async fn fetch_header_hash(
     Ok(B256::from_slice(
         light_block.signed_header.header.hash().as_bytes(),
     ))
+}
+
+/// We want our operators to be generic over a single provider (which is generic over a signer).
+/// Using this signer, we get one concrete type as a provider, even if we dont have a private key.
+pub mod signer {
+    use alloy::{
+        consensus::{TxEnvelope, TypedTransaction},
+        network::{Network, NetworkWallet},
+        primitives::Address,
+    };
+
+    /// A signer than panics if called and not set.
+    #[derive(Clone, Debug)]
+    pub struct MaybeWallet<W>(Option<W>);
+
+    impl<W> MaybeWallet<W> {
+        pub fn new(signer: Option<W>) -> Self {
+            Self(signer)
+        }
+    }
+
+    impl<W, N> NetworkWallet<N> for MaybeWallet<W>
+    where
+        W: NetworkWallet<N>,
+        N: Network<UnsignedTx = TypedTransaction, TxEnvelope = TxEnvelope>,
+    {
+        fn default_signer_address(&self) -> Address {
+            self.0
+                .as_ref()
+                .expect("No signer set")
+                .default_signer_address()
+        }
+
+        fn has_signer_for(&self, address: &Address) -> bool {
+            self.0
+                .as_ref()
+                .expect("No signer set")
+                .has_signer_for(address)
+        }
+
+        fn signer_addresses(&self) -> impl Iterator<Item = Address> {
+            self.0.as_ref().expect("No signer set").signer_addresses()
+        }
+
+        #[doc(alias = "sign_tx_from")]
+        async fn sign_transaction_from(
+            &self,
+            sender: Address,
+            tx: TypedTransaction,
+        ) -> alloy::signers::Result<TxEnvelope> {
+            self.0
+                .as_ref()
+                .expect("No signer set")
+                .sign_transaction_from(sender, tx)
+                .await
+        }
+    }
 }

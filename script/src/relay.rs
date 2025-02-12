@@ -1,8 +1,8 @@
 use alloy::primitives::B256;
 use anyhow::Result;
-use log::info;
 use serde::{Deserialize, Serialize};
 use std::{env, str::FromStr, time::Duration};
+use tracing::info;
 
 #[derive(Serialize, Deserialize)]
 pub enum KMSRelayStatus {
@@ -48,7 +48,7 @@ pub async fn relay_with_kms(args: &KMSRelayRequest, num_retries: u32) -> Result<
                 let error_message = response
                     .message
                     .expect("KMS request always returns a message");
-                log::warn!("KMS relay attempt {} failed: {}", attempt, error_message);
+                tracing::warn!("KMS relay attempt {} failed: {}", attempt, error_message);
                 if attempt == num_retries {
                     return Err(anyhow::anyhow!(
                         "Failed to relay transaction: {}",
