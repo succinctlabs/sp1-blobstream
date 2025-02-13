@@ -295,7 +295,10 @@ impl ChainConfig {
 
         let path = env::var("CHAINS_PATH").unwrap_or(DEFAULT_PATH.to_string());
 
-        Self::from_file(&path).or_else(|_| Self::from_env())
+        Self::from_file(&path).or_else(|_| {
+            tracing::info!("No chains file found, trying env.");
+            Self::from_env()
+        })
     }
 
     /// Tries to read from the `CHAINS` environment variable.
@@ -308,8 +311,7 @@ impl ChainConfig {
     fn from_file(path: &str) -> Result<Vec<Self>> {
         tracing::debug!("Reading chains from file: {}", path);
 
-        let file = std::fs::read_to_string(path)
-            .inspect_err(|e| println!("Error reading file: {:?}", e))?;
+        let file = std::fs::read_to_string(path)?;
 
         Ok(serde_json::from_str(&file)?)
     }
