@@ -49,7 +49,7 @@ where
     ///
     /// If `tries` failures occur, return the error.
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // SAFTEY: The inner future is not moved, everything else is unpin.
+        // SAFETY: The inner future is not moved, everything else is unpin.
         let this = unsafe { self.get_unchecked_mut() };
 
         if let Some(sleep) = &mut this.sleep {

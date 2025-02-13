@@ -58,9 +58,7 @@ struct SP1BlobstreamOperator<P, T, N> {
     vk: SP1VerifyingKey,
     contracts: HashMap<u64, SP1BlobstreamContract<T, P, N>>,
     network_prover: NetworkProver,
-
     use_kms_relayer: bool,
-    _phantom: PhantomData<(T, N)>,
 }
 
 impl<P, T, N> SP1BlobstreamOperator<P, T, N>
@@ -81,7 +79,6 @@ where
             contracts: HashMap::new(),
             network_prover: ProverClient::builder().network().build(),
             use_kms_relayer,
-            _phantom: PhantomData,
         }
     }
 
@@ -231,71 +228,62 @@ where
     /// If any errors occur while creating the proof.
     async fn handle_batch(
         self: Arc<Self>,
-        client: &TendermintRPCClient,
         chains: &[u64],
         current_block: u64,
-        next_block: u64,
+        target_block: u64,
     ) -> Result<Vec<Result<()>>> {
-        // If block_to_request is greater than the current block in the contract, attempt to request.
-        if next_block > current_block {
-            // The next block the operator should request.
-            let max_end_block = next_block;
+        debug_assert!(
+            target_block > current_block,
+            "Target block must be greater than current block"
+        );
 
-            let target_block = find_block_to_request(client, current_block, max_end_block).await?;
+        info!("Current block: {}", current_block);
+        info!("Attempting to step to block {}", target_block);
 
-            info!("Current block: {}", current_block);
-            info!("Attempting to step to block {}", target_block);
+        let proof = self
+            .create_proof(current_block, target_block)
+            .await
+            .context(format!(
+                "Failed to create proof for block {} to block {}",
+                current_block, target_block
+            ))?;
 
-            let proof = self
-                .create_proof(current_block, target_block)
-                .await
-                .context(format!(
-                    "Failed to create proof for block {} to block {}",
-                    current_block, target_block
-                ))?;
+        // Put the proof in an Arc to avoid cloning it for each chain.
+        let proof = Arc::new(proof);
 
-            // Put the proof in an Arc to avoid cloning it for each chain.
-            let proof = Arc::new(proof);
+        // Relay to all the chains concurrently.
+        let handles = chains.iter().copied().map(|id| {
+            let proof = proof.clone();
+            let this = self.clone();
 
-            // Relay to all the chains concurrently.
-            let handles = chains.iter().copied().map(|id| {
-                let proof = proof.clone();
-                let this = self.clone();
+            async move {
+                match this.relay_header_range(&proof, id).await {
+                    Ok(tx_hash) => {
+                        info!(
+                            "Posted data commitment from block {} to block {}",
+                            current_block, target_block
+                        );
+                        info!("Transaction hash for chain {}: {}", id, tx_hash);
+                        Ok(())
+                    }
+                    Err(e) => {
+                        error!("Relaying proof failed to chain {}: {}", id, e);
 
-                async move {
-                    match this.relay_header_range(&proof, id).await {
-                        Ok(tx_hash) => {
-                            info!(
-                                "Posted data commitment from block {} to block {}",
-                                current_block, target_block
-                            );
-                            info!("Transaction hash for chain {}: {}", id, tx_hash);
-                            Ok(())
-                        }
-                        Err(e) => {
-                            error!("Relaying proof failed to chain {}: {}", id, e);
-
-                            Err(e.context(format!(
-                                "Failed to relay proof for block {} to block {}",
-                                current_block, target_block
-                            )))
-                        }
+                        Err(e.context(format!(
+                            "Failed to relay proof for block {} to block {}",
+                            current_block, target_block
+                        )))
                     }
                 }
-                .instrument(tracing::span!(
-                    tracing::Level::INFO,
-                    "relay_header_range",
-                    chain_id = id
-                ))
-            });
+            }
+            .instrument(tracing::span!(
+                tracing::Level::INFO,
+                "relay_header_range",
+                chain_id = id
+            ))
+        });
 
-            // We dont want `try_join_all` because we dont want to early exit on any error.
-            return Ok(futures::future::join_all(handles).await);
-        } else {
-            info!("Next block to request is {} which is > the head of the Tendermint chain which is {}. Sleeping.", next_block, current_block);
-        }
-
-        Ok(vec![])
+        Ok(futures::future::join_all(handles).await)
     }
 
     /// Run the operator logic for the given chains.
@@ -313,7 +301,10 @@ where
         let client = TendermintRPCClient::default();
         let block_update_interval = get_block_update_interval();
 
-        // Check the vkey is correct for each chain just in case.
+        // Check the verification key is correct for each chain
+        // to ensure that the operator's program key matches the one the contract expects.
+        //
+        // Note: Early exits on any error.
         futures::future::try_join_all(
             self.contracts
                 .keys()
@@ -321,6 +312,8 @@ where
         )
         .await?;
 
+        // Get the data commitment max for each chain, they should be all be the same.
+        //
         // Note: Early exits on any error.
         let max_commits =
             futures::future::try_join_all(self.contracts.iter().map(|(id, contract)| async move {
@@ -344,6 +337,7 @@ where
         let mut blocks_to_chain_id: HashMap<u64, Vec<u64>> = HashMap::new();
 
         // Get the latest blocks from all the contracts.
+        //
         // Note: Early exits on any error.
         let latest_blocks =
             futures::future::try_join_all(self.contracts.iter().map(|(id, contract)| async move {
@@ -357,27 +351,43 @@ where
             }))
             .await?;
 
-        for (id, block) in latest_blocks {
+        // Group the chains by the last known block.
+        latest_blocks.into_iter().for_each(|(id, block)| {
             blocks_to_chain_id.entry(block).or_default().push(*id);
-        }
+        });
 
-        // Get the head of the chain.
+        // Get the head of the tendermint chain.
         let latest_tendermint_block_nb = get_latest_block_height(&client).await?;
         tracing::debug!("Latest tendermint block: {}", latest_tendermint_block_nb);
 
         // Subtract 1 block to ensure the block is stable.
         let latest_stable_tendermint_block = latest_tendermint_block_nb - 1;
 
+        // Spawn a task for each starting block, so we compute any proofs concurrently.
         let mut handles = Vec::new();
         for (last_known_block, ids) in blocks_to_chain_id {
-            // block_to_request is the closest interval of block_interval less than min(latest_stable_tendermint_block, data_commitment_max + current_block)
-            let max_block = std::cmp::min(
+            let block_to_request = std::cmp::min(
                 latest_stable_tendermint_block,
                 data_commitment_max + last_known_block,
             );
 
-            let block_to_request = max_block - (max_block % block_update_interval);
+            let block_to_request = block_to_request - (block_to_request % block_update_interval);
 
+            // Noop case.
+            if block_to_request <= last_known_block {
+                tracing::info!(
+                    "Next block to request is {} which is <= the last known block of {}. Sleeping.",
+                    block_to_request,
+                    last_known_block
+                );
+                continue;
+            }
+
+            // Blocks may be skipped if they dont meet consensus thresholds.
+            let block_to_request =
+                find_block_to_request(&client, last_known_block, block_to_request).await?;
+
+            // To display in the instrumented span.
             let id_display_str = ids
                 .iter()
                 .map(|id| id.to_string())
@@ -385,14 +395,13 @@ where
                 .join(", ");
 
             let this = self.clone();
-            let client = client.clone();
 
             // Spawn a task for each starting block, so we compute any proofs concurrently.
             let fut = async move {
                 tokio::spawn({
                     async move {
                         let this = this.clone();
-                        this.handle_batch(&client, &ids, last_known_block, block_to_request)
+                        this.handle_batch(&ids, last_known_block, block_to_request)
                             .await
                     }
                     .instrument(tracing::span!(
@@ -431,7 +440,8 @@ where
 
         if has_err {
             // Any errors would have been logged already.
-            // Return an error here to indicate we should retry sooner.
+            //
+            // Return an indicator to retry sooner.
             return Err(anyhow::anyhow!(""));
         }
 
