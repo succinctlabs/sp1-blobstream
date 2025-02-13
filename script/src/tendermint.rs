@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use crate::util::Retry;
 
+#[derive(Debug, Clone)]
 pub struct TendermintRPCClient {
     url: String,
     client: Arc<Client>,
