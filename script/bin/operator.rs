@@ -290,6 +290,7 @@ where
                 .count()
                 > 0
             {
+                tracing::error!("Errors occurred while relaying.");
                 // Return an empty error, any errors wouldve been logged already.
                 return Err(anyhow::anyhow!(""));
             }
@@ -407,6 +408,7 @@ where
             .count()
             > 0
         {
+            tracing::error!("Errors occurred while running the operator.");
             // Return an empty error, any errors wouldve been logged already.
             return Err(anyhow::anyhow!(""));
         }
