@@ -265,7 +265,7 @@ where
                             Ok(())
                         }
                         Err(e) => {
-                            error!("Relaying proof failed: {}", e);
+                            error!("Relaying proof failed to chain {}: {}", id, e);
 
                             Err(e.context(format!(
                                 "Failed to relay proof for block {} to block {}",
@@ -279,7 +279,8 @@ where
             // We dont want `try_join_all` because we dont want to early exit on any error.
             let results = futures::future::join_all(handles).await;
 
-            // Print any errors that occurred, and return a placeholder error to indicate an error occurred.
+            // Indivdually check each relay future for errors.
+            // If any errors occurred, return an empty error to indicate an error occurred.
             if results
                 .iter()
                 .filter(|res| res.is_err())
@@ -395,6 +396,7 @@ where
             }));
         }
 
+        // Individually check each task for errors.
         let results = futures::future::join_all(handles).await;
         if results
             .iter()
@@ -432,6 +434,8 @@ where
                         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
                         continue;
                     }
+
+                    tracing::info!("Operator ran successfully.");
                 }
             }
 
@@ -460,6 +464,7 @@ fn get_block_update_interval() -> u64 {
 
 #[derive(Debug, serde::Deserialize)]
 struct ChainConfig {
+    #[allow(unused)]
     name: String,
     rpc_url: String,
     blobstream_address: Address,
