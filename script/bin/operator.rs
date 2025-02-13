@@ -333,7 +333,7 @@ where
         assert!(max_commits.iter().all(|&max| max == max_commits[0]));
         let data_commitment_max = max_commits[0];
 
-        // We want to find all the chains that have the same last knwon block.
+        // Find all the chains that have the same last known block.
         let mut blocks_to_chain_id: HashMap<u64, Vec<u64>> = HashMap::new();
 
         // Get the latest blocks from all the contracts.
