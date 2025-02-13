@@ -223,11 +223,7 @@ where
         chains: &[u64],
         current_block: u64,
         next_block: u64,
-    ) -> Result<()> {
-        // Check the vkey is correct for each chain just in case.
-        futures::future::try_join_all(chains.iter().map(|chain_id| self.check_vkey(*chain_id)))
-            .await?;
-
+    ) -> Result<Vec<Result<()>>> {
         // If block_to_request is greater than the current block in the contract, attempt to request.
         if next_block > current_block {
             // The next block the operator should request.
@@ -261,7 +257,7 @@ where
                                 "Posted data commitment from block {} to block {}",
                                 current_block, target_block
                             );
-                            info!("Transaction hash: {}", tx_hash);
+                            info!("Transaction hash for chain {}: {}", id, tx_hash);
                             Ok(())
                         }
                         Err(e) => {
@@ -274,31 +270,20 @@ where
                         }
                     }
                 }
+                .instrument(tracing::span!(
+                    tracing::Level::INFO,
+                    "relay_header_range",
+                    chain_id = id
+                ))
             });
 
             // We dont want `try_join_all` because we dont want to early exit on any error.
-            let results = futures::future::join_all(handles).await;
-
-            // Indivdually check each relay future for errors.
-            // If any errors occurred, return an empty error to indicate an error occurred.
-            if results
-                .iter()
-                .filter(|res| res.is_err())
-                .inspect(|res| {
-                    tracing::error!("Error relaying: {:?}", res);
-                })
-                .count()
-                > 0
-            {
-                tracing::error!("Errors occurred while relaying.");
-                // Return an empty error, any errors wouldve been logged already.
-                return Err(anyhow::anyhow!(""));
-            }
+            return Ok(futures::future::join_all(handles).await);
         } else {
             info!("Next block to request is {} which is > the head of the Tendermint chain which is {}. Sleeping.", next_block, current_block);
         }
 
-        Ok(())
+        Ok(vec![])
     }
 
     /// Run the operator logic for the given chains.
@@ -315,6 +300,14 @@ where
     async fn run_inner(self: Arc<Self>) -> Result<()> {
         let client = TendermintRPCClient::default();
         let block_update_interval = get_block_update_interval();
+
+        // Check the vkey is correct for each chain just in case.
+        futures::future::try_join_all(
+            self.contracts
+                .keys()
+                .map(|id| async { self.check_vkey(*id).await }),
+        )
+        .await?;
 
         // Note: Early exits on any error.
         let max_commits =
@@ -379,37 +372,54 @@ where
                 .collect::<Vec<String>>()
                 .join(", ");
 
-            // Spawn a task for each starting block, so we compute any proofs concurrently.
-            handles.push(tokio::spawn({
-                let this = self.clone();
-                let client = client.clone();
+            let this = self.clone();
+            let client = client.clone();
 
-                async move {
-                    let this = this.clone();
-                    this.compute_batch_proof(&client, &ids, last_known_block, block_to_request)
-                        .await
-                }
-                .instrument(tracing::span!(
-                    tracing::Level::INFO,
-                    "compute_batch_proof",
-                    chains = id_display_str
-                ))
-            }));
+            // Spawn a task for each starting block, so we compute any proofs concurrently.
+            let fut = async move {
+                tokio::spawn({
+                    async move {
+                        let this = this.clone();
+                        this.compute_batch_proof(&client, &ids, last_known_block, block_to_request)
+                            .await
+                    }
+                    .instrument(tracing::span!(
+                        tracing::Level::INFO,
+                        "compute_batch_proof",
+                        chains = id_display_str
+                    ))
+                })
+                .await
+                .expect("Join error")
+            };
+
+            handles.push(fut);
         }
 
         // Individually check each task for errors.
         let results = futures::future::join_all(handles).await;
-        if results
-            .iter()
-            .filter(|res| res.is_err())
-            .inspect(|res| {
-                tracing::error!("Error running operator: {:?}", res);
-            })
-            .count()
-            > 0
-        {
-            tracing::error!("Errors occurred while running the operator.");
-            // Return an empty error, any errors wouldve been logged already.
+
+        let mut has_err = false;
+        for batch_result in results {
+            match batch_result {
+                Ok(relay_results) => {
+                    for relay_result in relay_results {
+                        if let Err(e) = relay_result {
+                            tracing::error!("Error relaying proof: {:?}", e);
+                            has_err = true;
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Error running batch: {:?}", e);
+                    has_err = true;
+                }
+            }
+        }
+
+        if has_err {
+            // Any errors would have been logged already.
+            // Return an error here to indicate we should retry sooner.
             return Err(anyhow::anyhow!(""));
         }
 
