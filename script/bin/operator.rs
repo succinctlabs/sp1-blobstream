@@ -442,6 +442,8 @@ where
     async fn run(self) {
         let this = Arc::new(self);
 
+        tracing::info!("Operator running with chains {:?}", this.contracts.keys());
+
         loop {
             let request_interval_mins = get_loop_interval_mins();
 
@@ -489,8 +491,6 @@ fn get_block_update_interval() -> u64 {
 
 #[derive(Debug, serde::Deserialize)]
 struct ChainConfig {
-    #[allow(unused)]
-    name: String,
     rpc_url: String,
     blobstream_address: Address,
 }
@@ -506,17 +506,20 @@ impl ChainConfig {
 
         Self::from_file(&path).or_else(|_| {
             tracing::info!("No chains file found, trying env.");
-            Self::from_env()
+            Self::from_env().map(|c| vec![c])
         })
     }
 
-    /// Tries to read from the `CHAINS` environment variable.
-    fn from_env() -> Result<Vec<Self>> {
-        let chains = env::var("CHAINS")?;
+    /// Tries to read from the `CONTRACT_ADDRESS` and `RPC_URL` environment variables.
+    fn from_env() -> Result<Self> {
+        let address = env::var("CONTRACT_ADDRESS").context("CONTRACT_ADDRESS not set")?;
+        let rpc_url = env::var("RPC_URL").context("RPC_URL not set")?;
 
-        Ok(serde_json::from_str(&chains)?)
+        Ok(Self {
+            rpc_url,
+            blobstream_address: address.parse()?,
+        })
     }
-
     fn from_file(path: &str) -> Result<Vec<Self>> {
         tracing::debug!("Reading chains from file: {}", path);
 
