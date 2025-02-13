@@ -58,7 +58,7 @@ where
             this.sleep = None;
         }
 
-        // SAFTEY: The inner future is not moved, everything else is unpin.
+        // SAFETY: The inner future is not moved, everything else is unpin.
         let inner = unsafe { Pin::new_unchecked(&mut this.inner) };
         match ready!(inner.poll(cx)) {
             Ok(output) => Poll::Ready(Ok(output)),
