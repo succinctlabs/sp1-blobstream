@@ -245,9 +245,10 @@ impl<P: Provider<T, N>, T: Transport + Clone, N: Network> SP1BlobstreamOperator<
                 Ok(proof) => {
                     let tx_hash = self.relay_header_range(proof).await?;
                     info!(
-                        "Posted data commitment from block {} to block {}\nTransaction hash: {}",
-                        current_block, target_block, tx_hash
+                        "Posted data commitment from block {} to block {}",
+                        current_block, target_block
                     );
+                    info!("Transaction hash: {}", tx_hash);
                 }
                 Err(e) => {
                     error!("Header range request failed: {}", e);
