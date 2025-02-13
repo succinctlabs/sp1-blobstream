@@ -25,8 +25,6 @@ use tracing_subscriber::EnvFilter;
 
 use sp1_blobstream_script::util::signer::MaybeWallet;
 
-use futures::{stream::FuturesUnordered, StreamExt};
-
 sol! {
     #[allow(missing_docs)]
     #[sol(rpc)]
@@ -71,6 +69,11 @@ where
     T: Transport + Clone,
     N: Network,
 {
+    /// Create a new SP1 Blobstream operator.
+    ///
+    /// - `pk`: the SP1 Proving key of the blobstream program.
+    /// - `vk`: the SP1 Verifying key of the blobstream program.
+    /// - `use_kms_relayer`: whether to use the KMS relayer to relay the proof.
     pub fn new(pk: SP1ProvingKey, vk: SP1VerifyingKey, use_kms_relayer: bool) -> Self {
         Self {
             pk: Arc::new(pk),
@@ -99,6 +102,9 @@ where
     }
 
     /// Check the verifying key in the contract matches the verifying key in the prover.
+    ///
+    /// # Errors
+    /// - If the verifying key in the operator does not match the verifying key in the contract.
     async fn check_vkey(&self, chain_id: u64) -> Result<()> {
         let contract = self.contracts.get(&chain_id).unwrap();
         let verifying_key = contract
@@ -118,6 +124,11 @@ where
         Ok(())
     }
 
+    /// Create a proof of the light client protocol,
+    /// updating from `current_block` to `next_block` for the given chains.
+    ///
+    /// # Errors
+    /// - If any errors occur while creating the proof.
     async fn create_proof(
         &self,
         trusted_block: u64,
@@ -157,7 +168,9 @@ where
             .run()
     }
 
-    /// Relay a header range proof to the SP1 Blobstream contract.
+    /// Relay a header range proof to the SP1 Blobstream contract,
+    /// depending on the `use_kms_relayer` flag, it will either use the KMS relayer
+    /// or attempt to sign with the provider instance.
     ///
     /// # Errors
     /// - If any errors occur while relaying the proof.
@@ -208,16 +221,15 @@ where
         }
     }
 
-    /// Compute a proof of the light client protocol,
-    /// updating from `current_block` to `next_block` for the given chains.
+    /// Handle a batch of chains that all have the same last known block,
+    /// assuming that the `current_block` is valid for each chain.
     ///
-    /// Note: Assumes that the `current_block` is valid for each chain.
+    /// # Returns
+    /// A vector of results, one for each chain potentially containing a transaction related error.
     ///
     /// # Errors
-    /// - If any errors occur while checking the vkey.
-    /// - If any errors occur while creating the proof.
-    /// - If any errors occur while relaying the proof.
-    async fn compute_batch_proof(
+    /// If any errors occur while creating the proof.
+    async fn handle_batch(
         self: Arc<Self>,
         client: &TendermintRPCClient,
         chains: &[u64],
@@ -380,7 +392,7 @@ where
                 tokio::spawn({
                     async move {
                         let this = this.clone();
-                        this.compute_batch_proof(&client, &ids, last_known_block, block_to_request)
+                        this.handle_batch(&client, &ids, last_known_block, block_to_request)
                             .await
                     }
                     .instrument(tracing::span!(
@@ -451,6 +463,7 @@ where
                 }
             }
 
+            // Sleep for the request interval.
             tokio::time::sleep(tokio::time::Duration::from_secs(60 * request_interval_mins)).await;
         }
     }
@@ -519,7 +532,9 @@ async fn main() {
 
     // Setup tracing.
     tracing_subscriber::fmt::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::from_env("info")),
+        )
         .init();
 
     // Succinct deployments use the `CHAINS` environment variable.
