@@ -293,8 +293,10 @@ pub async fn fetch_header_hash(
     ))
 }
 
-/// We want our operators to be generic over a single provider (which is generic over a signer).
-/// Using this signer, we get one concrete type as a provider, even if we dont have a private key.
+/// Implement a signer that may or may not actually be set.
+///
+/// This is useful to dynamically choose to use the KMS relayer in the operator,
+/// without having to change the actual provider type, since the provider is generic over a signer.
 pub mod signer {
     use alloy::{
         consensus::{TxEnvelope, TypedTransaction},

@@ -333,7 +333,7 @@ where
         assert!(max_commits.iter().all(|&max| max == max_commits[0]));
         let data_commitment_max = max_commits[0];
 
-        // Find all the chains that have the same last known block.
+        // Store a mapping of all the chains that share the same last known block.
         let mut blocks_to_chain_id: HashMap<u64, Vec<u64>> = HashMap::new();
 
         // Get the latest blocks from all the contracts.
@@ -363,7 +363,6 @@ where
         // Subtract 1 block to ensure the block is stable.
         let latest_stable_tendermint_block = latest_tendermint_block_nb - 1;
 
-        // Spawn a task for each starting block, so we compute any proofs concurrently.
         let mut handles = Vec::new();
         for (last_known_block, ids) in blocks_to_chain_id {
             let block_to_request = std::cmp::min(
@@ -396,7 +395,7 @@ where
 
             let this = self.clone();
 
-            // Spawn a task for each starting block, so we compute any proofs concurrently.
+            // Spawn a task for each starting block, to compute the proofs concurrently.
             let fut = async move {
                 tokio::spawn({
                     async move {
@@ -561,7 +560,7 @@ async fn main() {
         .map(|s| s.parse().expect("USE_KMS_RELAYER failed to parse"))
         .expect("USE_KMS_RELAYER not set");
 
-    // Ensure we have a signer if we're not using the KMS relayer.
+    // Ensure a signer is set if KMS relayer is false.
     if !use_kms_relayer && maybe_private_key.is_none() {
         panic!("PRIVATE_KEY is not set but USE_KMS_RELAYER is false.");
     }
