@@ -15,6 +15,7 @@ use clap::Parser;
 use futures::StreamExt;
 use reqwest::Url;
 use std::{cmp::Ordering, collections::HashMap, env, fs, str::FromStr};
+use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug, Clone)]
 #[command(about = "Get transaction costs for an address in a given month")]
@@ -153,7 +154,11 @@ async fn get_receipts_for_chain(
 async fn main() -> Result<()> {
     env::set_var("RUST_LOG", "info");
     dotenv::dotenv().ok();
-    env_logger::init();
+
+    // Setup tracing.
+    tracing_subscriber::fmt::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
 
     let args = CostScriptArgs::parse();
 

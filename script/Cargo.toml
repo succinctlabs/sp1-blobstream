@@ -39,13 +39,14 @@ dotenv = { workspace = true }
 subtle-encoding = { workspace = true }
 anyhow.workspace = true
 clap = { workspace = true }
-log = { workspace = true }
 hex = { workspace = true }
 futures = { workspace = true }
-env_logger = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }
 csv = { workspace = true }
+async-trait = "0.1.86"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
 
 [build-dependencies]
 sp1-build = "4.0.0-rc.8"

@@ -1,32 +1,31 @@
 use alloy::{
-    network::EthereumWallet,
+    network::{EthereumWallet, Network, ReceiptResponse},
     primitives::{Address, B256},
-    providers::ProviderBuilder,
+    providers::{Provider, ProviderBuilder},
     signers::local::PrivateKeySigner,
     sol,
+    transports::Transport,
 };
-use anyhow::Result;
-use log::{error, info};
-use reqwest::Url;
+use anyhow::{Context, Result};
 use sp1_blobstream_primitives::get_header_update_verdict;
-use sp1_blobstream_script::util::TendermintRPCClient;
+use sp1_blobstream_script::util::{
+    fetch_input_for_blobstream_proof, find_block_to_request, get_latest_block_height,
+};
+use sp1_blobstream_script::TendermintRPCClient;
 use sp1_blobstream_script::{relay, TENDERMINT_ELF};
 use sp1_sdk::{
-    network::FulfillmentStrategy, HashableKey, ProverClient, SP1ProofWithPublicValues,
-    SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
+    network::FulfillmentStrategy, HashableKey, NetworkProver, Prover, ProverClient,
+    SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
 };
-use std::env;
 use std::time::Duration;
+use std::{collections::HashMap, env, sync::Arc};
 use tendermint_light_client_verifier::Verdict;
+use tracing::{error, info, Instrument};
+use tracing_subscriber::EnvFilter;
 
-struct SP1BlobstreamOperator {
-    pk: SP1ProvingKey,
-    vk: SP1VerifyingKey,
-    contract_address: Address,
-    rpc_url: Url,
-    chain_id: u64,
-    use_kms_relayer: bool,
-}
+use sp1_blobstream_script::util::signer::MaybeWallet;
+
+/////// Contract ///////
 
 sol! {
     #[allow(missing_docs)]
@@ -45,49 +44,353 @@ sol! {
     }
 }
 
+use SP1Blobstream::SP1BlobstreamInstance as SP1BlobstreamContract;
+
+/////// Constants ///////
+
 // Timeout for the proof in seconds.
 const PROOF_TIMEOUT_SECONDS: u64 = 60 * 30;
 
+/// The number of times to retry the relay.
 const NUM_RELAY_RETRIES: u32 = 3;
 
-impl SP1BlobstreamOperator {
-    pub async fn new() -> Self {
-        dotenv::dotenv().ok();
+/// The timeout for the operator to run.
+const LOOP_TIMEOUT_MINS: u64 = 20;
 
-        let prover_client = ProverClient::from_env();
-        let (pk, vk) = prover_client.setup(TENDERMINT_ELF);
-        let use_kms_relayer: bool = env::var("USE_KMS_RELAYER")
-            .unwrap_or("false".to_string())
-            .parse()
-            .unwrap();
-        let chain_id: u64 = env::var("CHAIN_ID")
-            .expect("CHAIN_ID not set")
-            .parse()
-            .unwrap();
-        let rpc_url = env::var("RPC_URL")
-            .expect("RPC_URL not set")
-            .parse()
-            .unwrap();
+/////// Signer Mode ///////
 
-        let contract_address = env::var("CONTRACT_ADDRESS")
-            .expect("CONTRACT_ADDRESS not set")
-            .parse()
-            .unwrap();
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SignerMode {
+    Kms,
+    Local,
+}
 
+impl std::str::FromStr for SignerMode {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "kms" => Self::Kms,
+            "local" => Self::Local,
+            _ => return Err(anyhow::anyhow!("Invalid signer mode: {}", s)),
+        })
+    }
+}
+
+/////// Operator ///////
+
+struct SP1BlobstreamOperator<P, T, N> {
+    pk: Arc<SP1ProvingKey>,
+    vk: SP1VerifyingKey,
+    client: TendermintRPCClient,
+    contracts: HashMap<u64, SP1BlobstreamContract<T, P, N>>,
+    network_prover: NetworkProver,
+    signer_mode: SignerMode,
+}
+
+/////// Constructor ///////
+
+impl<P, T, N> SP1BlobstreamOperator<P, T, N>
+where
+    P: Provider<T, N> + 'static,
+    T: Transport + Clone,
+    N: Network,
+{
+    /// Create a new SP1 Blobstream operator.
+    ///
+    /// - `pk`: the SP1 Proving key of the blobstream program.
+    /// - `vk`: the SP1 Verifying key of the blobstream program.
+    /// - `use_kms_relayer`: whether to use the KMS relayer to relay the proof.
+    pub fn new(
+        pk: SP1ProvingKey,
+        vk: SP1VerifyingKey,
+        client: TendermintRPCClient,
+        signer_mode: SignerMode,
+    ) -> Self {
         Self {
-            pk,
+            pk: Arc::new(pk),
             vk,
-            chain_id,
-            rpc_url,
-            contract_address,
-            use_kms_relayer,
+            client,
+            contracts: HashMap::new(),
+            network_prover: ProverClient::builder().network().build(),
+            signer_mode,
         }
     }
 
+    /// Add a chain to the operator.
+    ///
+    /// # Panics
+    /// - If the chain id cannot be retrieved from the provider.
+    pub async fn with_chain(mut self, provider: P, address: Address) -> Self {
+        let chain_id = provider
+            .get_chain_id()
+            .await
+            .expect("Failed to get chain id");
+
+        let contract = SP1Blobstream::new(address, provider);
+
+        self.contracts.insert(chain_id, contract);
+        self
+    }
+}
+
+/////// Control Flow ///////
+
+impl<P, T, N> SP1BlobstreamOperator<P, T, N>
+where
+    P: Provider<T, N> + 'static,
+    T: Transport + Clone,
+    N: Network,
+{
+    /// Handle a batch of chains that all have the same last known block,
+    /// assuming that the `current_block` is valid for each chain.
+    ///
+    /// # Returns
+    /// A vector of results, one for each chain potentially containing a transaction related error.
+    ///
+    /// # Errors
+    /// If any errors occur while creating the proof.
+    async fn handle_batch(
+        self: Arc<Self>,
+        chains: &[u64],
+        current_block: u64,
+        target_block: u64,
+    ) -> Result<Vec<Result<()>>> {
+        debug_assert!(
+            target_block > current_block,
+            "Target block must be greater than current block"
+        );
+
+        info!("Current block: {}", current_block);
+        info!("Attempting to step to block {}", target_block);
+
+        let proof = self
+            .create_proof(current_block, target_block)
+            .await
+            .context(format!(
+                "Failed to create proof for block {} to block {}",
+                current_block, target_block
+            ))?;
+
+        // Put the proof in an Arc to avoid cloning it for each chain.
+        let proof = Arc::new(proof);
+
+        // Relay to all the chains concurrently.
+        let handles = chains.iter().copied().map(|id| {
+            let proof = proof.clone();
+            let this = self.clone();
+
+            async move {
+                match this.relay_header_range(&proof, id).await {
+                    Ok(tx_hash) => {
+                        info!(
+                            "Posted data commitment from block {} to block {}",
+                            current_block, target_block
+                        );
+                        info!("Transaction hash for chain {}: {}", id, tx_hash);
+                        Ok(())
+                    }
+                    Err(e) => {
+                        error!("Relaying proof failed to chain {}: {}", id, e);
+
+                        Err(e.context(format!(
+                            "Failed to relay proof for block {} to block {}",
+                            current_block, target_block
+                        )))
+                    }
+                }
+            }
+            .instrument(tracing::span!(
+                tracing::Level::INFO,
+                "relay_header_range",
+                chain_id = id
+            ))
+        });
+
+        Ok(futures::future::join_all(handles).await)
+    }
+
+    /// Run the operator logic for the given chains.
+    ///
+    /// Internally this function will:
+    /// - Get the data commitment max for each chain.
+    /// - Get the latest block for each chain.
+    /// - Find all the chains that have the same last known block.
+    /// - For each last known block,
+    ///   - Spawn a task to compute only one proof and relay the proof to all chains that have the same last known block.
+    ///
+    /// # Errors
+    /// - If any errors occur while making the batch proof.
+    async fn run_inner(self: Arc<Self>) -> Result<()> {
+        let data_commitment_max = self.check_contracts().await?;
+
+        // How often new tendermint blocks are created.
+        let block_update_interval = get_block_update_interval();
+
+        // Store a mapping of all the chains that share the same last known block.
+        let mut blocks_to_chain_id: HashMap<u64, Vec<u64>> = HashMap::new();
+
+        // Get the latest blocks from all the contracts.
+        //
+        // Note: Early exits on any error.
+        let latest_blocks =
+            futures::future::try_join_all(self.contracts.iter().map(|(id, contract)| async move {
+                match contract.latestBlock().call().await {
+                    Ok(latest_block) => anyhow::Result::Ok((id, latest_block.latestBlock)),
+                    Err(e) => {
+                        error!("Failed to get latest block for chain {}: {}", id, e);
+                        anyhow::Result::Err(e)
+                    }
+                }
+            }))
+            .await?;
+
+        // Group the chains by the last known block.
+        latest_blocks.into_iter().for_each(|(id, block)| {
+            blocks_to_chain_id.entry(block).or_default().push(*id);
+        });
+
+        // Get the head of the tendermint chain.
+        let latest_tendermint_block_nb = get_latest_block_height(&self.client).await?;
+        tracing::debug!("Latest tendermint block: {}", latest_tendermint_block_nb);
+
+        // Subtract 1 block to ensure the block is stable.
+        let latest_stable_tendermint_block = latest_tendermint_block_nb - 1;
+
+        let mut handles = Vec::new();
+        for (last_known_block, ids) in blocks_to_chain_id {
+            let block_to_request = std::cmp::min(
+                latest_stable_tendermint_block,
+                data_commitment_max + last_known_block,
+            );
+
+            let block_to_request = block_to_request - (block_to_request % block_update_interval);
+
+            // Noop case.
+            if block_to_request <= last_known_block {
+                tracing::info!(
+                    "Next block to request is {} which is <= the last known block of {}. Sleeping.",
+                    block_to_request,
+                    last_known_block
+                );
+                continue;
+            }
+
+            // Blocks may be skipped if they dont meet consensus thresholds.
+            let block_to_request =
+                find_block_to_request(&self.client, last_known_block, block_to_request).await?;
+
+            // To display in the instrumented span.
+            let id_display_str = ids
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<String>>()
+                .join(", ");
+
+            let this = self.clone();
+
+            // Spawn a task for each starting block, to compute the proofs concurrently.
+            let fut = async move {
+                tokio::spawn({
+                    async move {
+                        let this = this.clone();
+                        this.handle_batch(&ids, last_known_block, block_to_request)
+                            .await
+                    }
+                    .instrument(tracing::span!(
+                        tracing::Level::INFO,
+                        "compute_batch_proof",
+                        chains = id_display_str
+                    ))
+                })
+                .await
+                .expect("Join error")
+            };
+
+            handles.push(fut);
+        }
+
+        // Individually check each task for errors.
+        let results = futures::future::join_all(handles).await;
+
+        // Errors either occur when creating proofs or when relaying proofs.
+        //
+        // In either case, indicate that the operator should retry sooner.
+        let mut has_err = false;
+        for batch_result in results {
+            match batch_result {
+                Ok(relay_results) => {
+                    for relay_result in relay_results {
+                        if let Err(e) = relay_result {
+                            tracing::error!("Error relaying proof: {:?}", e);
+                            has_err = true;
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Error running batch: {:?}", e);
+                    has_err = true;
+                }
+            }
+        }
+
+        if has_err {
+            // Any errors would have been logged already.
+            //
+            // Return an indicator to retry sooner.
+            return Err(anyhow::anyhow!(""));
+        }
+
+        Ok(())
+    }
+
+    /// Run the operator, indefinitely.
+    async fn run(self) {
+        let this = Arc::new(self);
+
+        tracing::info!("Operator running with chains {:?}", this.contracts.keys());
+
+        loop {
+            let request_interval_mins = get_loop_interval_mins();
+
+            tokio::select! {
+                _ = tokio::time::sleep(tokio::time::Duration::from_secs(60 * LOOP_TIMEOUT_MINS)) => {
+                    tracing::error!("Operator took longer than {} minutes to run.", LOOP_TIMEOUT_MINS);
+                    continue;
+                }
+                res = this.clone().run_inner().instrument(tracing::span!(tracing::Level::INFO, "operator")) => {
+                    if let Err(e) = res {
+                        tracing::error!("Error running operator: {:?}", e);
+
+                        // Sleep for less time on errors.
+                        tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+                        continue;
+                    }
+
+                    tracing::info!("Operator ran successfully.");
+                }
+            }
+
+            // Sleep for the request interval.
+            tokio::time::sleep(tokio::time::Duration::from_secs(60 * request_interval_mins)).await;
+        }
+    }
+}
+
+///// Methods ///////
+
+impl<P, T, N> SP1BlobstreamOperator<P, T, N>
+where
+    P: Provider<T, N> + 'static,
+    T: Transport + Clone,
+    N: Network,
+{
     /// Check the verifying key in the contract matches the verifying key in the prover.
-    async fn check_vkey(&self) -> Result<()> {
-        let provider = ProviderBuilder::new().on_http(self.rpc_url.clone());
-        let contract = SP1Blobstream::new(self.contract_address, provider);
+    ///
+    /// # Errors
+    /// - If the verifying key in the operator does not match the verifying key in the contract.
+    async fn check_vkey(&self, chain_id: u64) -> Result<()> {
+        let contract = self.contracts.get(&chain_id).unwrap();
         let verifying_key = contract
             .blobstreamProgramVkey()
             .call()
@@ -105,19 +408,65 @@ impl SP1BlobstreamOperator {
         Ok(())
     }
 
-    async fn request_header_range(
+    /// Check the operator has the same data commitment max and verifying key for all chains.
+    ///
+    /// # Returns
+    /// The data commitment max for all chains.
+    async fn check_contracts(&self) -> Result<u64> {
+        // Check the verification key is correct for each chain
+        // to ensure that the operator's program key matches the one the contract expects.
+        //
+        // Note: Early exits on any error.
+        futures::future::try_join_all(
+            self.contracts
+                .keys()
+                .map(|id| async { self.check_vkey(*id).await }),
+        )
+        .await
+        .context("Failed to check verifying key for all chains")?;
+
+        // Get the data commitment max for each chain, they should be all be the same.
+        //
+        // Note: Early exits on any error.
+        let max_commits =
+            futures::future::try_join_all(self.contracts.iter().map(|(id, contract)| async move {
+                match contract.DATA_COMMITMENT_MAX().call().await {
+                    Ok(data_commitment_max) => {
+                        anyhow::Result::Ok(data_commitment_max.DATA_COMMITMENT_MAX)
+                    }
+                    Err(e) => {
+                        error!("Failed to get data commitment max for chain {}: {}", id, e);
+                        anyhow::Result::Err(e)
+                    }
+                }
+            }))
+            .await
+            .context("Failed to get data commitment max for all chains")?;
+
+        // All the chains should have the same data commitment max.
+        assert!(
+            max_commits.iter().all(|&max| max == max_commits[0]),
+            "Data commitment max values are not the same for all chains"
+        );
+
+        Ok(max_commits[0])
+    }
+
+    /// Create a proof of the light client protocol,
+    /// updating from `current_block` to `next_block` for the given chains.
+    ///
+    /// # Errors
+    /// - If any errors occur while creating the proof.
+    async fn create_proof(
         &self,
         trusted_block: u64,
         target_block: u64,
     ) -> Result<SP1ProofWithPublicValues> {
-        let rpc_client = TendermintRPCClient::default();
         let mut stdin = SP1Stdin::new();
 
         info!("Fetching inputs for proof.");
-        let inputs = rpc_client
-            .fetch_input_for_blobstream_proof(trusted_block, target_block)
-            .await?;
-
+        let inputs =
+            fetch_input_for_blobstream_proof(&self.client, trusted_block, target_block).await?;
         info!("Inputs fetched for proof.");
 
         // Simulate the step from the trusted block to the target block.
@@ -137,8 +486,7 @@ impl SP1BlobstreamOperator {
             }
         }
 
-        let prover_client = ProverClient::builder().network().build();
-        prover_client
+        self.network_prover
             .prove(&self.pk, &stdin)
             .strategy(FulfillmentStrategy::Reserved)
             .skip_simulation(true)
@@ -147,18 +495,28 @@ impl SP1BlobstreamOperator {
             .run()
     }
 
-    /// Relay a header range proof to the SP1 Blobstream contract.
-    async fn relay_header_range(&self, proof: SP1ProofWithPublicValues) -> Result<B256> {
-        if self.use_kms_relayer {
+    /// Relay a header range proof to the SP1 Blobstream contract,
+    /// depending on the `use_kms_relayer` flag, it will either use the KMS relayer
+    /// or attempt to sign with the provider instance.
+    ///
+    /// # Errors
+    /// - If any errors occur while relaying the proof.
+    async fn relay_header_range(
+        &self,
+        proof: &SP1ProofWithPublicValues,
+        chain_id: u64,
+    ) -> Result<B256> {
+        let contract = self.contracts.get(&chain_id).unwrap();
+
+        if matches!(self.signer_mode, SignerMode::Kms) {
             let proof_bytes = proof.bytes().into();
             let public_values = proof.public_values.to_vec().into();
-            let provider = ProviderBuilder::new().on_http(self.rpc_url.clone());
-            let contract = SP1Blobstream::new(self.contract_address, provider);
             let commit_header_range = contract.commitHeaderRange(proof_bytes, public_values);
+
             relay::relay_with_kms(
                 &relay::KMSRelayRequest {
-                    chain_id: self.chain_id,
-                    address: self.contract_address.to_checksum(None),
+                    chain_id,
+                    address: contract.address().to_checksum(None),
                     calldata: commit_header_range.calldata().to_string(),
                     platform_request: false,
                 },
@@ -171,15 +529,7 @@ impl SP1BlobstreamOperator {
             // Wait for 3 required confirmations with a timeout of 60 seconds.
             const NUM_CONFIRMATIONS: u64 = 3;
             const TIMEOUT_SECONDS: u64 = 60;
-            let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY not set");
-            let signer: PrivateKeySigner =
-                private_key.parse().expect("Failed to parse private key");
-            let wallet = EthereumWallet::from(signer);
-            let provider = ProviderBuilder::new()
-                .with_recommended_fillers()
-                .wallet(wallet)
-                .on_http(self.rpc_url.clone());
-            let contract = SP1Blobstream::new(self.contract_address, provider);
+
             let receipt = contract
                 .commitHeaderRange(proof.bytes().into(), public_values_bytes.into())
                 .send()
@@ -194,74 +544,12 @@ impl SP1BlobstreamOperator {
                 error!("Transaction reverted!");
             }
 
-            Ok(receipt.transaction_hash)
+            Ok(receipt.transaction_hash())
         }
-    }
-
-    async fn run(&self) -> Result<()> {
-        self.check_vkey().await?;
-
-        let fetcher = TendermintRPCClient::default();
-        let block_update_interval = get_block_update_interval();
-
-        let provider = ProviderBuilder::new().on_http(self.rpc_url.clone());
-        let contract = SP1Blobstream::new(self.contract_address, provider);
-
-        // Read the data commitment max from the contract.
-        let data_commitment_max = contract
-            .DATA_COMMITMENT_MAX()
-            .call()
-            .await?
-            .DATA_COMMITMENT_MAX;
-
-        // Get the latest block from the contract.
-        let current_block = contract.latestBlock().call().await?.latestBlock;
-
-        // Get the head of the chain.
-        let latest_tendermint_block_nb = fetcher.get_latest_block_height().await?;
-
-        // Subtract 1 block to ensure the block is stable.
-        let latest_stable_tendermint_block = latest_tendermint_block_nb - 1;
-
-        // block_to_request is the closest interval of block_interval less than min(latest_stable_tendermint_block, data_commitment_max + current_block)
-        let max_block = std::cmp::min(
-            latest_stable_tendermint_block,
-            data_commitment_max + current_block,
-        );
-        let block_to_request = max_block - (max_block % block_update_interval);
-
-        // If block_to_request is greater than the current block in the contract, attempt to request.
-        if block_to_request > current_block {
-            // The next block the operator should request.
-            let max_end_block = block_to_request;
-
-            let target_block = fetcher
-                .find_block_to_request(current_block, max_end_block)
-                .await?;
-
-            info!("Current block: {}", current_block);
-            info!("Attempting to step to block {}", target_block);
-
-            // Request a header range if the target block is not the next block.
-            match self.request_header_range(current_block, target_block).await {
-                Ok(proof) => {
-                    let tx_hash = self.relay_header_range(proof).await?;
-                    info!(
-                        "Posted data commitment from block {} to block {}\nTransaction hash: {}",
-                        current_block, target_block, tx_hash
-                    );
-                }
-                Err(e) => {
-                    error!("Header range request failed: {}", e);
-                    return Err(e);
-                }
-            };
-        } else {
-            info!("Next block to request is {} which is > the head of the Tendermint chain which is {}. Sleeping.", block_to_request + block_update_interval, latest_stable_tendermint_block);
-        }
-        Ok(())
     }
 }
+
+/////// Env Helpers ///////
 
 fn get_loop_interval_mins() -> u64 {
     let loop_interval_mins_env = env::var("LOOP_INTERVAL_MINS");
@@ -281,33 +569,93 @@ fn get_block_update_interval() -> u64 {
         .unwrap_or(360)
 }
 
+/////// Chain Config ///////
+
+#[derive(Debug, serde::Deserialize)]
+struct ChainConfig {
+    rpc_url: String,
+    blobstream_address: Address,
+}
+
+impl ChainConfig {
+    /// Tries to read from the `CHAINS_PATH` environment variable, then the default path (`../chains.json`).
+    ///
+    /// If neither are set, it will try to use [`Self::from_env`].
+    fn fetch() -> Result<Vec<Self>> {
+        const DEFAULT_PATH: &str = "chains.json";
+
+        let path = env::var("CHAINS_PATH").unwrap_or(DEFAULT_PATH.to_string());
+
+        Self::from_file(&path).or_else(|_| {
+            tracing::info!("No chains file found, trying env.");
+            Self::from_env().map(|c| vec![c])
+        })
+    }
+
+    /// Tries to read from the `CONTRACT_ADDRESS` and `RPC_URL` environment variables.
+    fn from_env() -> Result<Self> {
+        let address = env::var("CONTRACT_ADDRESS").context("CONTRACT_ADDRESS not set")?;
+        let rpc_url = env::var("RPC_URL").context("RPC_URL not set")?;
+
+        Ok(Self {
+            rpc_url,
+            blobstream_address: address.parse()?,
+        })
+    }
+    fn from_file(path: &str) -> Result<Vec<Self>> {
+        tracing::debug!("Reading chains from file: {}", path);
+
+        let file = std::fs::read_to_string(path)?;
+
+        Ok(serde_json::from_str(&file)?)
+    }
+}
+
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
-    env_logger::init();
 
-    let operator = SP1BlobstreamOperator::new().await;
+    // Setup tracing.
+    tracing_subscriber::fmt::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::from_env("info")),
+        )
+        .init();
 
-    info!("Starting SP1 Blobstream operator");
-    const LOOP_TIMEOUT_MINS: u64 = 20;
-    loop {
-        let request_interval_mins = get_loop_interval_mins();
-        tokio::select! {
-            _ = tokio::time::sleep(tokio::time::Duration::from_secs(60 * LOOP_TIMEOUT_MINS)) => {
-                log::error!("Operator took longer than {} minutes to run.", LOOP_TIMEOUT_MINS);
-                continue;
-            }
-            e = operator.run() => {
-                if let Err(e) = e {
-                    // Sleep for less time on errors.
-                    error!("Error running operator: {:?}", e);
+    // Succinct deployments use the `CHAINS` environment variable.
+    let config = ChainConfig::fetch().expect("Failed to fetch chain config");
+    let maybe_private_key: Option<PrivateKeySigner> = env::var("PRIVATE_KEY")
+        .ok()
+        .map(|s| s.parse().expect("Failed to parse PRIVATE_KEY"));
 
-                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-                    continue;
-                }
-            }
-        }
+    // Setup the KMS relayer config.
+    let signer_mode = env::var("SIGNER_MODE")
+        .map(|s| s.parse().expect("SIGNER_MODE failed to parse"))
+        .unwrap_or(SignerMode::Kms);
 
-        tokio::time::sleep(tokio::time::Duration::from_secs(60 * request_interval_mins)).await;
+    // Ensure a signer is set if KMS relayer is false.
+    if matches!(signer_mode, SignerMode::Local) && maybe_private_key.is_none() {
+        panic!("PRIVATE_KEY is not set but signer mode is local.");
     }
+
+    // Setup our signer.
+    let signer = MaybeWallet::new(maybe_private_key.map(EthereumWallet::new));
+
+    // Setup the prover and program keys.
+    let prover = ProverClient::builder().cpu().build();
+    let (pk, vk) = prover.setup(TENDERMINT_ELF);
+
+    let client = TendermintRPCClient::default();
+
+    let mut operator = SP1BlobstreamOperator::new(pk, vk, client, signer_mode);
+
+    for c in config {
+        let provider = ProviderBuilder::new()
+            .wallet(signer.clone())
+            .on_http(c.rpc_url.parse().expect("Failed to parse RPC URL"));
+
+        operator = operator.with_chain(provider, c.blobstream_address).await;
+    }
+
+    operator.run().await;
 }
