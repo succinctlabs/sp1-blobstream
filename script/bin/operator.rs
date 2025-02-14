@@ -25,6 +25,8 @@ use tracing_subscriber::EnvFilter;
 
 use sp1_blobstream_script::util::signer::MaybeWallet;
 
+/////// Contract ///////
+
 sol! {
     #[allow(missing_docs)]
     #[sol(rpc)]
@@ -44,6 +46,8 @@ sol! {
 
 use SP1Blobstream::SP1BlobstreamInstance as SP1BlobstreamContract;
 
+/////// Constants ///////
+
 // Timeout for the proof in seconds.
 const PROOF_TIMEOUT_SECONDS: u64 = 60 * 30;
 
@@ -53,13 +57,38 @@ const NUM_RELAY_RETRIES: u32 = 3;
 /// The timeout for the operator to run.
 const LOOP_TIMEOUT_MINS: u64 = 20;
 
+/////// Signer Mode ///////
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SignerMode {
+    Kms,
+    Local,
+}
+
+impl std::str::FromStr for SignerMode {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "kms" => Self::Kms,
+            "local" => Self::Local,
+            _ => return Err(anyhow::anyhow!("Invalid signer mode: {}", s)),
+        })
+    }
+}
+
+/////// Operator ///////
+
 struct SP1BlobstreamOperator<P, T, N> {
     pk: Arc<SP1ProvingKey>,
     vk: SP1VerifyingKey,
+    client: TendermintRPCClient,
     contracts: HashMap<u64, SP1BlobstreamContract<T, P, N>>,
     network_prover: NetworkProver,
-    use_kms_relayer: bool,
+    signer_mode: SignerMode,
 }
+
+/////// Constructor ///////
 
 impl<P, T, N> SP1BlobstreamOperator<P, T, N>
 where
@@ -72,13 +101,19 @@ where
     /// - `pk`: the SP1 Proving key of the blobstream program.
     /// - `vk`: the SP1 Verifying key of the blobstream program.
     /// - `use_kms_relayer`: whether to use the KMS relayer to relay the proof.
-    pub fn new(pk: SP1ProvingKey, vk: SP1VerifyingKey, use_kms_relayer: bool) -> Self {
+    pub fn new(
+        pk: SP1ProvingKey,
+        vk: SP1VerifyingKey,
+        client: TendermintRPCClient,
+        signer_mode: SignerMode,
+    ) -> Self {
         Self {
             pk: Arc::new(pk),
             vk,
+            client,
             contracts: HashMap::new(),
             network_prover: ProverClient::builder().network().build(),
-            use_kms_relayer,
+            signer_mode,
         }
     }
 
@@ -97,7 +132,16 @@ where
         self.contracts.insert(chain_id, contract);
         self
     }
+}
 
+/////// Control Flow ///////
+
+impl<P, T, N> SP1BlobstreamOperator<P, T, N>
+where
+    P: Provider<T, N> + 'static,
+    T: Transport + Clone,
+    N: Network,
+{
     /// Handle a batch of chains that all have the same last known block,
     /// assuming that the `current_block` is valid for each chain.
     ///
@@ -180,8 +224,6 @@ where
     async fn run_inner(self: Arc<Self>) -> Result<()> {
         let data_commitment_max = self.check_contracts().await?;
 
-        let client = TendermintRPCClient::default();
-
         // How often new tendermint blocks are created.
         let block_update_interval = get_block_update_interval();
 
@@ -209,7 +251,7 @@ where
         });
 
         // Get the head of the tendermint chain.
-        let latest_tendermint_block_nb = get_latest_block_height(&client).await?;
+        let latest_tendermint_block_nb = get_latest_block_height(&self.client).await?;
         tracing::debug!("Latest tendermint block: {}", latest_tendermint_block_nb);
 
         // Subtract 1 block to ensure the block is stable.
@@ -236,7 +278,7 @@ where
 
             // Blocks may be skipped if they dont meet consensus thresholds.
             let block_to_request =
-                find_block_to_request(&client, last_known_block, block_to_request).await?;
+                find_block_to_request(&self.client, last_known_block, block_to_request).await?;
 
             // To display in the instrumented span.
             let id_display_str = ids
@@ -335,6 +377,8 @@ where
     }
 }
 
+///// Methods ///////
+
 impl<P, T, N> SP1BlobstreamOperator<P, T, N>
 where
     P: Provider<T, N> + 'static,
@@ -418,12 +462,11 @@ where
         trusted_block: u64,
         target_block: u64,
     ) -> Result<SP1ProofWithPublicValues> {
-        let rpc_client = TendermintRPCClient::default();
         let mut stdin = SP1Stdin::new();
 
         info!("Fetching inputs for proof.");
         let inputs =
-            fetch_input_for_blobstream_proof(&rpc_client, trusted_block, target_block).await?;
+            fetch_input_for_blobstream_proof(&self.client, trusted_block, target_block).await?;
         info!("Inputs fetched for proof.");
 
         // Simulate the step from the trusted block to the target block.
@@ -465,7 +508,7 @@ where
     ) -> Result<B256> {
         let contract = self.contracts.get(&chain_id).unwrap();
 
-        if self.use_kms_relayer {
+        if matches!(self.signer_mode, SignerMode::Kms) {
             let proof_bytes = proof.bytes().into();
             let public_values = proof.public_values.to_vec().into();
             let commit_header_range = contract.commitHeaderRange(proof_bytes, public_values);
@@ -506,6 +549,8 @@ where
     }
 }
 
+/////// Env Helpers ///////
+
 fn get_loop_interval_mins() -> u64 {
     let loop_interval_mins_env = env::var("LOOP_INTERVAL_MINS");
     let mut loop_interval_mins = 60;
@@ -523,6 +568,8 @@ fn get_block_update_interval() -> u64 {
         .map(|i| i.parse().expect("Couldnt parse BLOCK_UPDATE_INTERVAL"))
         .unwrap_or(360)
 }
+
+/////// Chain Config ///////
 
 #[derive(Debug, serde::Deserialize)]
 struct ChainConfig {
@@ -582,13 +629,13 @@ async fn main() {
         .map(|s| s.parse().expect("Failed to parse PRIVATE_KEY"));
 
     // Setup the KMS relayer config.
-    let use_kms_relayer: bool = env::var("USE_KMS_RELAYER")
+    let signer_mode = env::var("USE_KMS_RELAYER")
         .map(|s| s.parse().expect("USE_KMS_RELAYER failed to parse"))
-        .expect("USE_KMS_RELAYER not set");
+        .unwrap_or(SignerMode::Kms);
 
     // Ensure a signer is set if KMS relayer is false.
-    if !use_kms_relayer && maybe_private_key.is_none() {
-        panic!("PRIVATE_KEY is not set but USE_KMS_RELAYER is false.");
+    if matches!(signer_mode, SignerMode::Local) && maybe_private_key.is_none() {
+        panic!("PRIVATE_KEY is not set but signer mode is local.");
     }
 
     // Setup our signer.
@@ -598,7 +645,9 @@ async fn main() {
     let prover = ProverClient::builder().cpu().build();
     let (pk, vk) = prover.setup(TENDERMINT_ELF);
 
-    let mut operator = SP1BlobstreamOperator::new(pk, vk, use_kms_relayer);
+    let client = TendermintRPCClient::default();
+
+    let mut operator = SP1BlobstreamOperator::new(pk, vk, client, signer_mode);
 
     for c in config {
         let provider = ProviderBuilder::new()
