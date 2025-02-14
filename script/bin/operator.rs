@@ -629,8 +629,8 @@ async fn main() {
         .map(|s| s.parse().expect("Failed to parse PRIVATE_KEY"));
 
     // Setup the KMS relayer config.
-    let signer_mode = env::var("USE_KMS_RELAYER")
-        .map(|s| s.parse().expect("USE_KMS_RELAYER failed to parse"))
+    let signer_mode = env::var("SIGNER_MODE")
+        .map(|s| s.parse().expect("SIGNER_MODE failed to parse"))
         .unwrap_or(SignerMode::Kms);
 
     // Ensure a signer is set if KMS relayer is false.
