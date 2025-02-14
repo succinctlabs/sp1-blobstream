@@ -315,7 +315,7 @@ where
 
         // Errors either occur when creating proofs or when relaying proofs.
         //
-        // In either case, we want to retry sooner.
+        // In either case, indicate that the operator should retry sooner.
         let mut has_err = false;
         for batch_result in results {
             match batch_result {
