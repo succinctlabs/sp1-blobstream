@@ -221,7 +221,7 @@ where
     ///
     /// # Errors
     /// - If any errors occur while making the batch proof.
-    async fn run_inner(self: Arc<Self>) -> Result<()> {
+    async fn run(self: Arc<Self>) -> Result<()> {
         let data_commitment_max = self.check_contracts().await?;
 
         // How often new tendermint blocks are created.
@@ -276,7 +276,7 @@ where
                 continue;
             }
 
-            // Blocks may be skipped if they dont meet consensus thresholds.
+            // If the `block_to_request` doesn't have enough overlapping validators with the `last_known_block`, the `block_to_request` needs to be reduced to a block where the validators have enough overlap.
             let block_to_request =
                 find_block_to_request(&self.client, last_known_block, block_to_request).await?;
 
@@ -315,7 +315,7 @@ where
 
         // Errors either occur when creating proofs or when relaying proofs.
         //
-        // In either case, indicate that the operator should retry sooner.
+        // In either case, return an error. In the outer loop, the operator will not "sleep" for the loop interval if there was an error and will retry immediately.
         let mut has_err = false;
         for batch_result in results {
             match batch_result {
@@ -345,7 +345,7 @@ where
     }
 
     /// Run the operator, indefinitely.
-    async fn run(self) {
+    async fn loop(self) {
         let this = Arc::new(self);
 
         tracing::info!("Operator running with chains {:?}", this.contracts.keys());
@@ -362,7 +362,7 @@ where
                     if let Err(e) = res {
                         tracing::error!("Error running operator: {:?}", e);
 
-                        // Sleep for less time on errors.
+                        // If there's an error, sleep for only 10 seconds. This will avoid transient RPC downtime while ensuring that the operator recovers quickly.
                         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
                         continue;
                     }
@@ -657,5 +657,5 @@ async fn main() {
         operator = operator.with_chain(provider, c.blobstream_address).await;
     }
 
-    operator.run().await;
+    operator.loop().await;
 }
