@@ -159,7 +159,7 @@ where
     /// - If relaying the proof to any chain fails.
     async fn create_and_relay_proof(
         &self,
-        chains: &[u64],
+        chains: Vec<u64>,
         current_block: u64,
         target_block: u64,
     ) -> Result<Vec<Result<()>>> {
@@ -179,15 +179,12 @@ where
                 current_block, target_block
             ))?;
 
-        // Put the proof in an Arc to avoid cloning it for each chain.
-        let proof = Arc::new(proof);
-
         // Relay to all the chains concurrently.
-        let handles = chains.iter().map(|id| {
-            let proof = proof.clone();
+        let handles = chains.into_iter().map(|id| {
+            let proof = &proof;
 
             async move {
-                match self.relay_header_range(&proof, *id).await {
+                match self.relay_header_range(proof, id).await {
                     Ok(tx_hash) => {
                         info!(
                             "Posted data commitment from block {} to block {}",
@@ -258,12 +255,11 @@ where
         });
 
         let mut handles = Vec::new();
-        let client = self.client.clone();
         for (last_known_block, ids) in blocks_to_chain_id {
             // If the consensus threshold is not met, the first block to match the threshold
             // will be used as the block to request.
             let block_to_request = find_block_to_request(
-                &client,
+                &self.client,
                 last_known_block,
                 block_update_interval,
                 data_commitment_max,
@@ -283,7 +279,7 @@ where
                     let operator_clone = self.clone();
                     async move {
                         operator_clone
-                            .create_and_relay_proof(&ids, last_known_block, block_to_request)
+                            .create_and_relay_proof(ids, last_known_block, block_to_request)
                             .await
                     }
                     .instrument(tracing::span!(
