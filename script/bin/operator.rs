@@ -59,7 +59,7 @@ const LOOP_TIMEOUT_MINS: u64 = 20;
 const NUM_CONFIRMATIONS: u64 = 3;
 
 /// The timeout for the transaction in seconds.
-const TIMEOUT_SECONDS: u64 = 60;
+const TRANSACTION_TIMEOUT_SECONDS: u64 = 60;
 
 /////// Signer Mode ///////
 
@@ -527,7 +527,7 @@ where
                 .send()
                 .await?
                 .with_required_confirmations(NUM_CONFIRMATIONS)
-                .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
+                .with_timeout(Some(Duration::from_secs(TRANSACTION_TIMEOUT_SECONDS)))
                 .get_receipt()
                 .await?;
 
