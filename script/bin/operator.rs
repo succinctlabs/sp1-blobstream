@@ -154,8 +154,8 @@ where
     /// A vector of results, one for each chain indicating success or a transaction error.
     ///
     /// # Errors
-    /// - If creating the block range proof fails
-    /// - If relaying the proof to any chain fails
+    /// - If creating the block range proof fails.
+    /// - If relaying the proof to any chain fails.
     async fn create_and_relay_proof(
         &self,
         chains: &[u64],
