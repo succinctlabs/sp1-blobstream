@@ -88,7 +88,7 @@ struct SP1BlobstreamOperator<P, T, N> {
     vk: SP1VerifyingKey,
     client: TendermintRPCClient,
     contracts: HashMap<u64, SP1BlobstreamContract<T, P, N>>,
-    network_prover: NetworkProver,
+    network_prover: Arc<NetworkProver>,
     signer_mode: SignerMode,
 }
 
@@ -110,13 +110,14 @@ where
         vk: SP1VerifyingKey,
         client: TendermintRPCClient,
         signer_mode: SignerMode,
+        network_prover: Arc<NetworkProver>,
     ) -> Self {
         Self {
             pk: Arc::new(pk),
             vk,
             client,
             contracts: HashMap::new(),
-            network_prover: ProverClient::builder().network().build(),
+            network_prover,
             signer_mode,
         }
     }
@@ -634,12 +635,12 @@ async fn main() {
     let signer = MaybeWallet::new(maybe_private_key.map(EthereumWallet::new));
 
     // Setup the prover and program keys.
-    let prover = ProverClient::builder().cpu().build();
+    let prover = ProverClient::builder().network().build();
     let (pk, vk) = prover.setup(TENDERMINT_ELF);
 
     let client = TendermintRPCClient::default();
 
-    let mut operator = SP1BlobstreamOperator::new(pk, vk, client, signer_mode);
+    let mut operator = SP1BlobstreamOperator::new(pk, vk, client, signer_mode, Arc::new(prover));
 
     for c in config {
         let provider = ProviderBuilder::new()
