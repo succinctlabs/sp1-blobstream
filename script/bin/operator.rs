@@ -308,7 +308,9 @@ where
 
         // Errors either occur when creating proofs or when relaying proofs.
         //
-        // In either case, indicate that the operator should retry sooner.
+        // In either case, return an error. In `run`, the operator will not "sleep" for the loop 
+        // interval if there was an error and will retry invoking `run_operator_iteration` 
+        // immediately.
         let mut has_err = false;
         for batch_result in results {
             match batch_result {
@@ -359,7 +361,8 @@ where
                     if let Err(e) = res {
                         tracing::error!("Error running operator: {:?}", e);
 
-                        // Sleep for less time on errors.
+                        // If there's an error, sleep for only 10 seconds. This will avoid 
+                        // transient RPC downtime while ensuring that the operator recovers quickly.
                         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
                         continue;
                     }
