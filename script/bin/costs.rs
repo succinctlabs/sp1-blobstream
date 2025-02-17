@@ -155,7 +155,7 @@ async fn main() -> Result<()> {
     env::set_var("RUST_LOG", "info");
     dotenv::dotenv().ok();
 
-    // Setup tracing.
+    // Set up tracing.
     tracing_subscriber::fmt::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();

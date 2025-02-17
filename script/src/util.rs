@@ -42,7 +42,7 @@ pub async fn fetch_input_for_blobstream_proof(
 /// is greater than the start block.
 ///
 /// However, if this block does not meet the consensus threshold for the transition (validated with
-/// `is_valid_skip`), then we should use the first block that does meet the threshold.
+/// `is_valid_skip`), then use the first block that does meet the threshold.
 pub async fn find_block_to_request(
     client: &TendermintRPCClient,
     start_block: u64,
@@ -155,11 +155,11 @@ pub async fn get_headers_in_range(
             .collect::<Vec<_>>()
             .await;
 
-        // Check if we got any errors.
+        // Check if there are any errors.
         let first_err = batch_headers.iter().position(|h| h.is_err());
 
         if let Some(err) = first_err {
-            // If we got at least one result, then it doesnt count as a failure.
+            // If there is at least one valid result, then it doesn't count as a failure.
             if err == 0 {
                 failures += 1;
             }
@@ -175,7 +175,7 @@ pub async fn get_headers_in_range(
             // Extend the headers with the headers that were not err.
             headers.extend(batch_headers.into_iter().take(err).map(Result::unwrap));
         } else {
-            // There are no errors, so we reset the failure count to 0.
+            // There are no errors, so reset the failure count to 0.
             failures = 0;
 
             // The next start should be the (not included) end of this batch.
@@ -278,7 +278,7 @@ pub fn is_valid_skip(
     let mut start_block_idx = 0;
     let start_block_num_validators = start_block_validators.len();
 
-    // Exit if we have already reached the threshold
+    // Exit if the threshold is met.
     while (target_block_total_voting_power as f64) * threshold > shared_voting_power as f64
         && start_block_idx < start_block_num_validators
     {

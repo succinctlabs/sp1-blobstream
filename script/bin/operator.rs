@@ -611,7 +611,7 @@ impl ChainConfig {
 async fn main() {
     dotenv::dotenv().ok();
 
-    // Setup tracing.
+    // Set up tracing.
     tracing_subscriber::fmt::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::from_env("info")),
@@ -624,7 +624,7 @@ async fn main() {
         .ok()
         .map(|s| s.parse().expect("Failed to parse PRIVATE_KEY"));
 
-    // Setup the KMS relayer config.
+    // Set up the KMS relayer config.
     let signer_mode = env::var("SIGNER_MODE")
         .map(|s| s.parse().expect("SIGNER_MODE failed to parse"))
         .unwrap_or(SignerMode::Kms);
@@ -634,10 +634,10 @@ async fn main() {
         panic!("PRIVATE_KEY is not set but signer mode is local.");
     }
 
-    // Setup our signer.
+    // Set up the signer.
     let signer = MaybeWallet::new(maybe_private_key.map(EthereumWallet::new));
 
-    // Setup the prover and program keys.
+    // Set up the prover and program keys.
     let prover = ProverClient::builder().network().build();
     let (pk, vk) = prover.setup(TENDERMINT_ELF);
 
