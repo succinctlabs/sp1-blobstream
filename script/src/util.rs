@@ -36,16 +36,43 @@ pub async fn fetch_input_for_blobstream_proof(
     })
 }
 
-// Search to find the greatest block number to request.
+/// Search to find the end block to request based on the start block.
+///
+/// Ideally, the end block is the first block that is a multiple of the block update interval that
+/// is greater than the start block.
+///
+/// However, if this block does not meet the consensus threshold for the transition (validated with
+/// `is_valid_skip`), then we should use the first block that does meet the threshold.
 pub async fn find_block_to_request(
     client: &TendermintRPCClient,
     start_block: u64,
-    max_end_block: u64,
-) -> anyhow::Result<u64> {
-    let mut curr_end_block = max_end_block;
+    block_update_interval: u64,
+    data_commitment_max: u64,
+) -> anyhow::Result<Option<u64>> {
+    // Get the head of the tendermint chain.
+    let latest_tendermint_block_nb = get_latest_block_height(client).await?;
+    tracing::debug!("Latest tendermint block: {}", latest_tendermint_block_nb);
+
+    // Subtract 1 block to ensure the block is stable.
+    let latest_stable_tendermint_block = latest_tendermint_block_nb - 1;
+
+    let block_to_request = std::cmp::min(
+        latest_stable_tendermint_block,
+        data_commitment_max + start_block,
+    );
+
+    let ideal_block_to_request = block_to_request - (block_to_request % block_update_interval);
+
+    if ideal_block_to_request <= start_block {
+        return Ok(None);
+    }
+
+    // If the consensus threshold is not met with the transition from the start block to the ideal block,
+    // the first block to match the threshold will be used as the block to request.
+    let mut curr_end_block = ideal_block_to_request;
     loop {
         if curr_end_block - start_block == 1 {
-            return Ok(curr_end_block);
+            return Ok(Some(curr_end_block));
         }
         let start_block_validators = client.fetch_validators(start_block).await?;
         let start_validator_set = Set::new(start_block_validators, None);
@@ -58,7 +85,7 @@ pub async fn find_block_to_request(
             target_validator_set,
             target_block_commit.result.signed_header.commit,
         ) {
-            return Ok(curr_end_block);
+            return Ok(Some(curr_end_block));
         }
 
         let mid_block = (curr_end_block + start_block) / 2;
