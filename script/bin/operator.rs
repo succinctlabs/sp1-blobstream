@@ -488,7 +488,8 @@ where
             .skip_simulation(true)
             .plonk()
             .timeout(Duration::from_secs(PROOF_TIMEOUT_SECONDS))
-            .run()
+            .run_async()
+            .await
     }
 
     /// Relay a header range proof to the SP1 Blobstream contract,
