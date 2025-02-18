@@ -1,0 +1,7 @@
+[
+    {
+        "name": "chain",
+        "rpc_url": "https://rpc.chain.com",
+        "blobstream_address": "0xA83ca7775Bc2889825BcDeDfFa5b758cf69e8794"
+    }
+]

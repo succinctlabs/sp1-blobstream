@@ -1,4 +1,8 @@
 pub mod relay;
+
+pub mod tendermint;
+pub use tendermint::*;
+
 pub mod types;
 pub mod util;
 
