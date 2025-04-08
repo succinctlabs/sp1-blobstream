@@ -7,8 +7,8 @@ resolver = "2"
 sp1-blobstream-primitives = { path = "primitives" }
 
 alloy = { version = "0.9", default-features = false }
-tendermint = { version = "0.40.1", default-features = false }
-tendermint-light-client-verifier = { version = "0.40.1", default-features = false, features = [
+tendermint = { version = "0.40.3", default-features = false }
+tendermint-light-client-verifier = { version = "0.40.3", default-features = false, features = [
     "rust-crypto",
 ] }
 
@@ -28,8 +28,8 @@ csv = "1.3.1"
 sha2 = "0.10"
 
 # sp1
-sp1-sdk = "4.0.0"
-sp1-zkvm = "4.0.0"
+sp1-sdk = "4.1.7"
+sp1-zkvm = "4.1.7"
 
 [patch.crates-io]
 sha2-v0-9-9 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.9.9-sp1-4.0.0" }
