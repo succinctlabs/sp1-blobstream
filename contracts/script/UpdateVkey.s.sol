@@ -23,7 +23,7 @@ contract UpdateVkeyScript is BaseScript {
 
         SP1Blobstream sp1Blobstream = SP1Blobstream(address(existingProxyAddress));
 
-        // v4 program vkey
-        sp1Blobstream.updateProgramVkey(0x00b6c8c78a73630fae80e45b2888a00d9ab0cc05a77cd7c027446a6ae2289928);
+        // SP1 Blobstream 1.1.0 program verification key
+        sp1Blobstream.updateProgramVkey(0x00eaf7d396acac046b54bc8d5ba17d3f1c7374d7158ac01c76dfeca6103163eb);
     }
 }
