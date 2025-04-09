@@ -29,7 +29,7 @@ impl Default for TendermintRPCClient {
 pub const DEFAULT_TENDERMINT_RPC_TIMEOUT_SECS: u64 = 20;
 
 /// The default concurrency for Tendermint RPC requests.
-pub const DEFAULT_TENDERMINT_RPC_CONCURRENCY: usize = 25;
+pub const DEFAULT_TENDERMINT_RPC_CONCURRENCY: usize = 5;
 
 /// The default sleep duration for Tendermint RPC requests in milliseconds.
 pub const DEFAULT_TENDERMINT_RPC_SLEEP_MS: Duration = Duration::from_millis(1250);
