@@ -486,6 +486,7 @@ where
             .prove(&self.pk, &stdin)
             .strategy(FulfillmentStrategy::Reserved)
             .skip_simulation(true)
+            .cycle_limit(10_000_000_000)
             .plonk()
             .timeout(Duration::from_secs(PROOF_TIMEOUT_SECONDS))
             .run_async()
