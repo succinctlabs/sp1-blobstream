@@ -358,7 +358,7 @@ where
             .await
             {
                 Ok(Ok(())) => {
-                    tracing::info!("Operator ran successfully.");
+                    tracing::info!("Successfully ran operator iteration.");
                     // Sleep for the request interval
                     tokio::time::sleep(tokio::time::Duration::from_secs(
                         60 * request_interval_mins,
@@ -366,13 +366,13 @@ where
                     .await;
                 }
                 Ok(Err(e)) => {
-                    tracing::error!("Error running operator: {:?}", e);
+                    tracing::error!("Error running operator iteration: {:?}", e);
                     // If there's an error, sleep for only 10 seconds
                     tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
                 }
                 Err(_) => {
                     tracing::error!(
-                        "Operator took longer than {} minutes to run.",
+                        "Operator iteration took longer than {} minutes to run.",
                         LOOP_TIMEOUT_MINS
                     );
                     // Sleep for a short time before retrying
