@@ -53,7 +53,7 @@ const PROOF_TIMEOUT_SECONDS: u64 = 60 * 30;
 const NUM_RELAY_RETRIES: u32 = 3;
 
 /// The timeout for the operator to run.
-const LOOP_TIMEOUT_MINS: u64 = 20;
+const LOOP_TIMEOUT_MINS: u64 = 30;
 
 /// The number of confirmations to wait for.
 const NUM_CONFIRMATIONS: u64 = 3;
@@ -348,27 +348,37 @@ where
         loop {
             let request_interval_mins = get_loop_interval_mins();
 
-            tokio::select! {
-                _ = tokio::time::sleep(tokio::time::Duration::from_secs(60 * LOOP_TIMEOUT_MINS)) => {
-                    tracing::error!("Operator took longer than {} minutes to run.", LOOP_TIMEOUT_MINS);
-                    continue;
-                }
-                res = this.clone().run_operator_iteration().instrument(tracing::span!(tracing::Level::INFO, "operator")) => {
-                    if let Err(e) = res {
-                        tracing::error!("Error running operator: {:?}", e);
-
-                        // If there's an error, sleep for only 10 seconds. This will avoid
-                        // transient RPC downtime while ensuring that the operator recovers quickly.
-                        tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-                        continue;
-                    }
-
+            // Use timeout instead of select for cleaner timeout handling
+            match tokio::time::timeout(
+                tokio::time::Duration::from_secs(60 * LOOP_TIMEOUT_MINS),
+                this.clone()
+                    .run_operator_iteration()
+                    .instrument(tracing::span!(tracing::Level::INFO, "operator")),
+            )
+            .await
+            {
+                Ok(Ok(())) => {
                     tracing::info!("Operator ran successfully.");
+                    // Sleep for the request interval
+                    tokio::time::sleep(tokio::time::Duration::from_secs(
+                        60 * request_interval_mins,
+                    ))
+                    .await;
+                }
+                Ok(Err(e)) => {
+                    tracing::error!("Error running operator: {:?}", e);
+                    // If there's an error, sleep for only 10 seconds
+                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+                }
+                Err(_) => {
+                    tracing::error!(
+                        "Operator took longer than {} minutes to run.",
+                        LOOP_TIMEOUT_MINS
+                    );
+                    // Sleep for a short time before retrying
+                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
                 }
             }
-
-            // Sleep for the request interval.
-            tokio::time::sleep(tokio::time::Duration::from_secs(60 * request_interval_mins)).await;
         }
     }
 }

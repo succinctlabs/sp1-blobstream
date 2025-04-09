@@ -23,6 +23,10 @@ path = "bin/vkey.rs"
 name = "costs"
 path = "bin/costs.rs"
 
+[[bin]]
+name = "fetch_proof"
+path = "bin/fetch_proof.rs"
+
 [dependencies]
 sp1-blobstream-primitives = { workspace = true }
 alloy = { workspace = true, default-features = true, features = ["full"] }

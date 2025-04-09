@@ -1,5 +1,6 @@
 use alloy::primitives::B256;
 use anyhow::Context;
+use futures::stream;
 use futures::stream::FuturesOrdered;
 use futures::StreamExt;
 use sp1_blobstream_primitives::types::ProofInputs;
@@ -124,72 +125,85 @@ pub async fn get_headers_in_range(
     start_height: u64,
     end_height: u64,
 ) -> anyhow::Result<Vec<Header>> {
-    let mut headers = Vec::with_capacity(((end_height - start_height) + 1) as usize);
+    let mut batch_headers = stream::iter(start_height..end_height + 1)
+        .map(|height| async move {
+            get_block(client, height)
+                .await
+                .expect("Failed to fetch block")
+                .header
+        })
+        .buffer_unordered(100)
+        .collect::<Vec<_>>()
+        .await;
 
-    let mut failures: u32 = 0;
-    let mut next_batch_start = start_height;
+    batch_headers.sort_by_key(|header| header.height.value());
 
-    while next_batch_start <= end_height {
-        if failures == DEFAULT_FAILURES_ALLOWED {
-            return Err(anyhow::anyhow!(
-                "Got too many failures attempting to fetch block headers."
-            ));
-        }
+    Ok(batch_headers)
 
-        // Top of the range is non-inclusive so max out at `end_height + 1`.
-        let batch_end = std::cmp::min(
-            next_batch_start + DEFAULT_TENDERMINT_RPC_CONCURRENCY as u64,
-            end_height + 1,
-        );
+    // let mut failures: u32 = 0;
+    // let mut next_batch_start = start_height;
 
-        tracing::info!(
-            "Fetching headers from {} to {}",
-            next_batch_start,
-            batch_end - 1
-        );
+    // while next_batch_start <= end_height {
+    //     if failures == DEFAULT_FAILURES_ALLOWED {
+    //         return Err(anyhow::anyhow!(
+    //             "Got too many failures attempting to fetch block headers."
+    //         ));
+    //     }
 
-        // Chunk the range into batches of DEFAULT_TENDERMINT_RPC_CONCURRENCY.
-        let batch_headers: Vec<anyhow::Result<Header>> = (next_batch_start..batch_end)
-            .map(|height| async move { Ok(get_block(client, height).await?.header) })
-            .collect::<FuturesOrdered<_>>()
-            .collect::<Vec<_>>()
-            .await;
+    //     // Top of the range is non-inclusive so max out at `end_height + 1`.
+    //     let batch_end = std::cmp::min(
+    //         next_batch_start + DEFAULT_TENDERMINT_RPC_CONCURRENCY as u64,
+    //         end_height + 1,
+    //     );
 
-        // Check if there are any errors.
-        let first_err = batch_headers.iter().position(|h| h.is_err());
+    //     tracing::info!(
+    //         "Fetching headers from {} to {}",
+    //         next_batch_start,
+    //         batch_end - 1
+    //     );
 
-        if let Some(err) = first_err {
-            // If there is at least one valid result, then it doesn't count as a failure.
-            if err == 0 {
-                failures += 1;
-            }
+    //     // Chunk the range into batches of DEFAULT_TENDERMINT_RPC_CONCURRENCY.
+    //     let batch_headers: Vec<anyhow::Result<Header>> = (next_batch_start..batch_end)
+    //         .map(|height| async move { Ok(get_block(client, height).await?.header) })
+    //         .collect::<FuturesOrdered<_>>()
+    //         .collect::<Vec<_>>()
+    //         .await;
 
-            tracing::debug!(
-                "Got errors fetching headers, successful header count: {}",
-                err
-            );
+    //     // Check if there are any errors.
+    //     let first_err = batch_headers.iter().position(|h| h.is_err());
 
-            // Bump the start of the next batch by the number of successful headers in this batch.
-            next_batch_start += err as u64;
+    //     if let Some(err) = first_err {
+    //         // If there is at least one valid result, then it doesn't count as a failure.
+    //         if err == 0 {
+    //             failures += 1;
+    //         }
 
-            // Extend the headers with the headers that were not err.
-            headers.extend(batch_headers.into_iter().take(err).map(Result::unwrap));
-        } else {
-            // There are no errors, so reset the failure count to 0.
-            failures = 0;
+    //         tracing::debug!(
+    //             "Got errors fetching headers, successful header count: {}",
+    //             err
+    //         );
 
-            // The next start should be the (not included) end of this batch.
-            next_batch_start = batch_end;
+    //         // Bump the start of the next batch by the number of successful headers in this batch.
+    //         next_batch_start += err as u64;
 
-            // Extend the headers with all of the headers in this batch.
-            headers.extend(batch_headers.into_iter().map(Result::unwrap));
-        }
+    //         // Extend the headers with the headers that were not err.
+    //         headers.extend(batch_headers.into_iter().take(err).map(Result::unwrap));
+    //     } else {
+    //         // There are no errors, so reset the failure count to 0.
+    //         failures = 0;
 
-        // Sleep for 1.25 seconds to avoid rate limiting.
-        tokio::time::sleep(DEFAULT_TENDERMINT_RPC_SLEEP_MS * 2_u32.pow(failures)).await;
-    }
+    //         // The next start should be the (not included) end of this batch.
+    //         next_batch_start = batch_end;
 
-    Ok(headers)
+    //         // Extend the headers with all of the headers in this batch.
+    //         headers.extend(batch_headers.into_iter().map(Result::unwrap));
+    //     }
+
+    //     // Sleep for 1.25 seconds to avoid rate limiting.
+    //     tokio::time::sleep(DEFAULT_TENDERMINT_RPC_SLEEP_MS * 2_u32.pow(failures)).await;
+    // }
+
+    // Ok(headers)
 }
 
 /// Retrieves the latest block height from the Tendermint node.
