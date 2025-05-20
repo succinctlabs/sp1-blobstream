@@ -226,6 +226,8 @@ where
     /// # Errors
     /// - If any errors occur while making the batch proof.
     async fn run_operator_iteration(self: Arc<Self>) -> Result<()> {
+        tracing::info!("Running operator iteration");
+
         let data_commitment_max = self.validate_contracts().await?;
 
         // How often new tendermint blocks are created.
@@ -350,7 +352,7 @@ where
 
             // Use timeout instead of select for cleaner timeout handling
             match tokio::time::timeout(
-                tokio::time::Duration::from_secs(60 * LOOP_TIMEOUT_MINS),
+                tokio::time::Duration::from_secs(LOOP_TIMEOUT_MINS),
                 this.clone()
                     .run_operator_iteration()
                     .instrument(tracing::span!(tracing::Level::INFO, "operator")),
