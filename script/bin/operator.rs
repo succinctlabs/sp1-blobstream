@@ -425,11 +425,11 @@ where
         // to ensure that the operator's program key matches the one the contract expects.
         //
         // Note: Early exits on any error.
-        futures::future::try_join_all(
-            self.contracts
-                .keys()
-                .map(|id| async { self.check_vkey(*id).await }),
-        )
+        futures::future::try_join_all(self.contracts.keys().map(|id| async move {
+            self.check_vkey(*id)
+                .await
+                .map_err(|e| e.context(format!("Failed to check verifying key for chain {}", id)))
+        }))
         .await
         .context("Failed to check verifying key for all chains")?;
 
