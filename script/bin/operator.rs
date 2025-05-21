@@ -7,6 +7,7 @@ use alloy::{
     transports::Transport,
 };
 use anyhow::{Context, Result};
+use reqwest::Url;
 use sp1_blobstream_primitives::get_header_update_verdict;
 use sp1_blobstream_script::util::{fetch_input_for_blobstream_proof, find_block_to_request};
 use sp1_blobstream_script::TendermintRPCClient;
@@ -655,10 +656,12 @@ async fn main() {
 
     let mut operator = SP1BlobstreamOperator::new(pk, vk, client, signer_mode, Arc::new(prover));
 
-    for c in config {
-        let provider = ProviderBuilder::new()
-            .wallet(signer.clone())
-            .on_http(c.rpc_url.parse().expect("Failed to parse RPC URL"));
+    for (i, c) in config.iter().enumerate() {
+        let url: Url = c.rpc_url.parse().expect("Failed to parse RPC URL");
+        tracing::info!("Adding chain {:?} to operator", url.domain());
+        tracing::info!("Chain {} of {}", i + 1, config.len());
+
+        let provider = ProviderBuilder::new().wallet(signer.clone()).on_http(url);
 
         operator = operator.with_chain(provider, c.blobstream_address).await;
     }
