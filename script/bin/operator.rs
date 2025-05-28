@@ -661,7 +661,10 @@ async fn main() {
         tracing::info!("Adding chain {:?} to operator", url.domain());
         tracing::info!("Chain {} of {}", i + 1, config.len());
 
-        let provider = ProviderBuilder::new().wallet(signer.clone()).on_http(url);
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(signer.clone())
+            .on_http(url);
 
         operator = operator.with_chain(provider, c.blobstream_address).await;
     }
