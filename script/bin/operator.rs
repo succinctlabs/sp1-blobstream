@@ -1,5 +1,5 @@
 use alloy::{
-    network::{EthereumWallet, Network, ReceiptResponse},
+    network::{Network, ReceiptResponse},
     primitives::{Address, B256},
     providers::{Provider, ProviderBuilder},
     signers::local::PrivateKeySigner,
@@ -20,8 +20,6 @@ use std::{collections::HashMap, env, sync::Arc};
 use tendermint_light_client_verifier::Verdict;
 use tracing::{error, info, Instrument};
 use tracing_subscriber::EnvFilter;
-
-use sp1_blobstream_script::util::signer::MaybeWallet;
 
 /////// Contract ///////
 
@@ -621,31 +619,29 @@ async fn main() {
 
     // Succinct deployments use the `CHAINS` environment variable.
     let config = ChainConfig::fetch().expect("Failed to fetch chain config");
-    let maybe_private_key: Option<PrivateKeySigner> = env::var("PRIVATE_KEY")
-        .ok()
-        .map(|s| s.parse().expect("Failed to parse PRIVATE_KEY"));
 
     // Set up the KMS relayer config.
     let signer_mode = env::var("SIGNER_MODE")
         .map(|s| s.parse().expect("SIGNER_MODE failed to parse"))
         .unwrap_or(SignerMode::Kms);
 
-    // Ensure a signer is set if KMS relayer is false.
-    if matches!(signer_mode, SignerMode::Local) && maybe_private_key.is_none() {
-        panic!("PRIVATE_KEY is not set but signer mode is local.");
+    match signer_mode {
+        SignerMode::Local => run_with_wallet(config).await,
+        SignerMode::Kms => run_with_kms_relayer(config).await,
     }
+}
 
-    // Set up the signer.
-    let signer = MaybeWallet::new(maybe_private_key.map(EthereumWallet::new));
+async fn run_with_wallet(config: Vec<ChainConfig>) {
+    let key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY not set");
+    let signer: PrivateKeySigner = key.parse().expect("Failed to parse PRIVATE_KEY");
 
-    // Set up the prover and program keys.
     let prover = ProverClient::builder().network().build();
     let (pk, vk) = prover.setup(TENDERMINT_ELF);
 
     let client = TendermintRPCClient::default();
 
-    let mut operator = SP1BlobstreamOperator::new(pk, vk, client, signer_mode, Arc::new(prover));
-
+    let mut operator =
+        SP1BlobstreamOperator::new(pk, vk, client, SignerMode::Local, Arc::new(prover));
     for (i, c) in config.iter().enumerate() {
         let url: Url = c.rpc_url.parse().expect("Failed to parse RPC URL");
         tracing::info!("Adding chain {:?} to operator", url.domain());
@@ -654,6 +650,28 @@ async fn main() {
         let provider = ProviderBuilder::new()
             .wallet(signer.clone())
             .connect_http(url);
+
+        operator = operator.with_chain(provider, c.blobstream_address).await;
+    }
+
+    operator.run().await;
+}
+
+async fn run_with_kms_relayer(config: Vec<ChainConfig>) {
+    let prover = ProverClient::builder().network().build();
+    let (pk, vk) = prover.setup(TENDERMINT_ELF);
+
+    let client = TendermintRPCClient::default();
+
+    let mut operator =
+        SP1BlobstreamOperator::new(pk, vk, client, SignerMode::Kms, Arc::new(prover));
+
+    for (i, c) in config.iter().enumerate() {
+        let url: Url = c.rpc_url.parse().expect("Failed to parse RPC URL");
+        tracing::info!("Adding chain {:?} to operator", url.domain());
+        tracing::info!("Chain {} of {}", i + 1, config.len());
+
+        let provider = ProviderBuilder::new().connect_http(url);
 
         operator = operator.with_chain(provider, c.blobstream_address).await;
     }
