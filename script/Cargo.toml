@@ -29,6 +29,9 @@ alloy = { workspace = true, default-features = false, features = [
     "provider-http",
     "contract",
     "rpc-types",
+    "signers",
+    "signer-local",
+    "reqwest",
 ] }
 tendermint = { workspace = true }
 tendermint-light-client-verifier = { workspace = true, features = [

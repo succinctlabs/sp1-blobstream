@@ -6,7 +6,7 @@ resolver = "2"
 # sp1-blobstream
 sp1-blobstream-primitives = { path = "primitives" }
 
-alloy = { version = "1.0" }
+alloy = { version = "1.0", default-features = false }
 tendermint = { version = "0.40.3", default-features = false }
 tendermint-light-client-verifier = { version = "0.40.3", default-features = false, features = [
     "rust-crypto",

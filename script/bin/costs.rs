@@ -4,10 +4,9 @@ use alloy::{
     network::{primitives::HeaderResponse, BlockResponse},
     primitives::{Address, B256},
     providers::{Network, Provider, ProviderBuilder},
-    rpc::types::{BlockTransactionsKind, Filter},
+    rpc::types::Filter,
     sol,
     sol_types::SolEvent,
-    transports::Transport,
 };
 use anyhow::Result;
 use chrono::{TimeZone, Utc};
@@ -74,7 +73,7 @@ async fn get_receipts_for_chain(
     month: u32,
     year: i32,
 ) -> Result<Vec<RelayTransaction>> {
-    let provider = ProviderBuilder::new().on_http(Url::parse(rpc_url).unwrap());
+    let provider = ProviderBuilder::new().connect_http(Url::parse(rpc_url).unwrap());
     let chain_id = provider.get_chain_id().await?;
 
     let to_addr = get_contract_address(chain_id).expect("Chain ID not supported");

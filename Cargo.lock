@@ -65,7 +65,6 @@ dependencies = [
  "alloy-contract",
  "alloy-core",
  "alloy-eips 1.0.9",
- "alloy-genesis",
  "alloy-network 1.0.9",
  "alloy-provider",
  "alloy-rpc-client",
@@ -193,7 +192,6 @@ dependencies = [
  "alloy-dyn-abi",
  "alloy-json-abi",
  "alloy-primitives",
- "alloy-rlp",
  "alloy-sol-types",
 ]
 
@@ -287,19 +285,6 @@ dependencies = [
  "either",
  "serde",
  "sha2 0.10.8",
-]
-
-[[package]]
-name = "alloy-genesis"
-version = "1.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c98fb40f07997529235cc474de814cd7bd9de561e101716289095696c0e4639d"
-dependencies = [
- "alloy-eips 1.0.9",
- "alloy-primitives",
- "alloy-serde 1.0.9",
- "alloy-trie",
- "serde",
 ]
 
 [[package]]
