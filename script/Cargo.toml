@@ -25,7 +25,11 @@ path = "bin/costs.rs"
 
 [dependencies]
 sp1-blobstream-primitives = { workspace = true }
-alloy = { workspace = true, default-features = true, features = ["full"] }
+alloy = { workspace = true, default-features = false, features = [
+    "provider-http",
+    "contract",
+    "rpc-types",
+] }
 tendermint = { workspace = true }
 tendermint-light-client-verifier = { workspace = true, features = [
     "rust-crypto",
@@ -49,4 +53,4 @@ tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 
 [build-dependencies]
-sp1-build = "4.1.7"
+sp1-build = "5.0.0"

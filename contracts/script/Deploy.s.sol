@@ -22,12 +22,12 @@ contract DeployScript is BaseScript {
 
     string internal constant KEY = "SP1_BLOBSTREAM";
 
-    function run() external multichain(KEY) returns (address) {
+    function run() external returns (address) {
         vm.startBroadcast();
 
         SP1Blobstream lightClient;
         ISP1Verifier verifier = ISP1Verifier(
-            vm.envOr("SP1_VERIFIER_ADDRESS", 0x3B6041173B80E77f038f3F2C0f9744f04837185e)
+            vm.envOr("SP1_VERIFIER_ADDRESS", 0x9c4C79a08A5bEa1C4231311A75820320a5FFff79)
         );
 
         // Deploy the SP1Blobstream contract.

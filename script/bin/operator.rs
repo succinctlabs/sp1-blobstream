@@ -4,7 +4,6 @@ use alloy::{
     providers::{Provider, ProviderBuilder},
     signers::local::PrivateKeySigner,
     sol,
-    transports::Transport,
 };
 use anyhow::{Context, Result};
 use reqwest::Url;
@@ -84,21 +83,20 @@ impl std::str::FromStr for SignerMode {
 
 /////// Operator ///////
 
-struct SP1BlobstreamOperator<P, T, N> {
+struct SP1BlobstreamOperator<P, N> {
     pk: Arc<SP1ProvingKey>,
     vk: SP1VerifyingKey,
     client: TendermintRPCClient,
-    contracts: HashMap<u64, SP1BlobstreamContract<T, P, N>>,
+    contracts: HashMap<u64, SP1BlobstreamContract<P, N>>,
     network_prover: Arc<NetworkProver>,
     signer_mode: SignerMode,
 }
 
 /////// Constructor ///////
 
-impl<P, T, N> SP1BlobstreamOperator<P, T, N>
+impl<P, N> SP1BlobstreamOperator<P, N>
 where
-    P: Provider<T, N> + 'static,
-    T: Transport + Clone,
+    P: Provider<N> + 'static,
     N: Network,
 {
     /// Create a new SP1 Blobstream operator.
@@ -142,10 +140,9 @@ where
 
 /////// Control Flow ///////
 
-impl<P, T, N> SP1BlobstreamOperator<P, T, N>
+impl<P, N> SP1BlobstreamOperator<P, N>
 where
-    P: Provider<T, N> + 'static,
-    T: Transport + Clone,
+    P: Provider<N> + 'static,
     N: Network,
 {
     /// Create and relay a block range proof to multiple chains.
@@ -243,7 +240,7 @@ where
         let latest_blocks =
             futures::future::try_join_all(self.contracts.iter().map(|(id, contract)| async move {
                 match contract.latestBlock().call().await {
-                    Ok(latest_block) => anyhow::Result::Ok((id, latest_block.latestBlock)),
+                    Ok(latest_block) => anyhow::Result::Ok((id, latest_block)),
                     Err(e) => {
                         error!("Failed to get latest block for chain {}: {}", id, e);
                         anyhow::Result::Err(e)
@@ -388,10 +385,9 @@ where
 
 ///// Methods ///////
 
-impl<P, T, N> SP1BlobstreamOperator<P, T, N>
+impl<P, N> SP1BlobstreamOperator<P, N>
 where
-    P: Provider<T, N> + 'static,
-    T: Transport + Clone,
+    P: Provider<N> + 'static,
     N: Network,
 {
     /// Check the verifying key in the contract matches the verifying key in the prover.
@@ -400,13 +396,9 @@ where
     /// - If the verifying key in the operator does not match the verifying key in the contract.
     async fn check_vkey(&self, chain_id: u64) -> Result<()> {
         let contract = self.contracts.get(&chain_id).unwrap();
-        let verifying_key = contract
-            .blobstreamProgramVkey()
-            .call()
-            .await?
-            .blobstreamProgramVkey;
+        let verifying_key = contract.blobstreamProgramVkey().call().await?;
 
-        if verifying_key.0.to_vec()
+        if verifying_key.to_vec()
             != hex::decode(self.vk.bytes32().strip_prefix("0x").unwrap()).unwrap()
         {
             return Err(anyhow::anyhow!(
@@ -440,9 +432,7 @@ where
         let max_commits =
             futures::future::try_join_all(self.contracts.iter().map(|(id, contract)| async move {
                 match contract.DATA_COMMITMENT_MAX().call().await {
-                    Ok(data_commitment_max) => {
-                        anyhow::Result::Ok(data_commitment_max.DATA_COMMITMENT_MAX)
-                    }
+                    Ok(data_commitment_max) => anyhow::Result::Ok(data_commitment_max),
                     Err(e) => {
                         error!("Failed to get data commitment max for chain {}: {}", id, e);
                         anyhow::Result::Err(e)
@@ -662,9 +652,8 @@ async fn main() {
         tracing::info!("Chain {} of {}", i + 1, config.len());
 
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(signer.clone())
-            .on_http(url);
+            .connect_http(url);
 
         operator = operator.with_chain(provider, c.blobstream_address).await;
     }
