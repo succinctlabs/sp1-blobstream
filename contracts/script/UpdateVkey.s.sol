@@ -18,12 +18,15 @@ contract UpdateVkeyScript is BaseScript {
 
     /// Reads CONTRACT_ADDRESS_<CHAIN_ID> from the environment variables and updates the SP1 Verifier and program vkey.
     function run() external multichain(KEY) broadcaster {
-        string memory contractAddressKey = string.concat("CONTRACT_ADDRESS_", vm.toString(block.chainid));
+        string memory contractAddressKey =
+            string.concat("CONTRACT_ADDRESS_", vm.toString(block.chainid));
         address existingProxyAddress = vm.envAddress(contractAddressKey);
 
         SP1Blobstream sp1Blobstream = SP1Blobstream(address(existingProxyAddress));
 
         // SP1 Blobstream 1.1.0 program verification key
-        sp1Blobstream.updateProgramVkey(0x00eaf7d396acac046b54bc8d5ba17d3f1c7374d7158ac01c76dfeca6103163eb);
+        sp1Blobstream.updateProgramVkey(
+            0x00de39c136b88dfeacb832629e21a9667935bc0e74aaa21292e4f237d79d0bef
+        );
     }
 }

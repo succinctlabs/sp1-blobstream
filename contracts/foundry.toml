@@ -17,3 +17,16 @@ line_length = 100
 tab_width = 4
 func_attrs_with_params_multiline = true
 ignore = ["lib/**"]
+
+[rpc_endpoints]
+mainnet = "${RPC_MAINNET}"
+sepolia = "${RPC_SEPOLIA}"
+holesky = "${RPC_HOLESKY}"
+arbitrum = "${RPC_ARBITRUM}"
+arbitrum_sepolia = "${RPC_ARBITRUM_SEPOLIA}"
+base = "${RPC_BASE}"
+base_sepolia = "${RPC_BASE_SEPOLIA}"
+optimism = "${RPC_OPTIMISM}"
+optimism_sepolia = "${RPC_OPTIMISM_SEPOLIA}"
+scroll = "${RPC_SCROLL}"
+scroll_sepolia = "${RPC_SCROLL_SEPOLIA}"
