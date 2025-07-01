@@ -8,7 +8,7 @@ fn main() {
     //         docker: true,
     //         elf_name: Some("blobstream-elf".to_string()),
     //         output_directory: Some("../elf".to_string()),
-    //         tag: "v4.1.7".to_string(),
+    //         tag: "v5.0.0".to_string(),
     //         ..Default::default()
     //     },
     // )

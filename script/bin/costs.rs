@@ -4,10 +4,9 @@ use alloy::{
     network::{primitives::HeaderResponse, BlockResponse},
     primitives::{Address, B256},
     providers::{Network, Provider, ProviderBuilder},
-    rpc::types::{BlockTransactionsKind, Filter},
+    rpc::types::Filter,
     sol,
     sol_types::SolEvent,
-    transports::Transport,
 };
 use anyhow::Result;
 use chrono::{TimeZone, Utc};
@@ -74,7 +73,7 @@ async fn get_receipts_for_chain(
     month: u32,
     year: i32,
 ) -> Result<Vec<RelayTransaction>> {
-    let provider = ProviderBuilder::new().on_http(Url::parse(rpc_url).unwrap());
+    let provider = ProviderBuilder::new().connect_http(Url::parse(rpc_url).unwrap());
     let chain_id = provider.get_chain_id().await?;
 
     let to_addr = get_contract_address(chain_id).expect("Chain ID not supported");
@@ -229,18 +228,13 @@ async fn main() -> Result<()> {
 }
 
 /// Finds the block at the provided timestamp, using the provided provider.
-async fn find_block_by_timestamp<P, T, N>(
-    provider: &P,
-    target_timestamp: u64,
-) -> Result<(B256, u64)>
+async fn find_block_by_timestamp<P, N>(provider: &P, target_timestamp: u64) -> Result<(B256, u64)>
 where
-    P: Provider<T, N>,
-    T: Transport + Clone,
+    P: Provider<N>,
     N: Network,
 {
-    let latest_block = provider
-        .get_block(BlockId::latest(), BlockTransactionsKind::Hashes)
-        .await?;
+    let latest_block = provider.get_block(BlockId::latest()).await?;
+
     let Some(latest_block) = latest_block else {
         return Err(anyhow::anyhow!("No latest block found"));
     };
@@ -249,9 +243,7 @@ where
 
     while low <= high {
         let mid = (low + high) / 2;
-        let block = provider
-            .get_block(mid.into(), BlockTransactionsKind::Hashes)
-            .await?;
+        let block = provider.get_block(mid.into()).await?;
         let Some(block) = block else {
             return Err(anyhow::anyhow!("No block found"));
         };
@@ -267,9 +259,7 @@ where
     }
 
     // Return the block hash of the closest block after the target timestamp
-    let block = provider
-        .get_block((low - 10).into(), BlockTransactionsKind::Hashes)
-        .await?;
+    let block = provider.get_block((low - 10).into()).await?;
     let Some(block) = block else {
         return Err(anyhow::anyhow!("No block found"));
     };
