@@ -485,7 +485,7 @@ where
 
         self.network_prover
             .prove(&self.pk, &stdin)
-            .strategy(FulfillmentStrategy::Reserved)
+            .strategy(FulfillmentStrategy::Auction)
             .skip_simulation(true)
             .cycle_limit(10_000_000_000)
             .plonk()
