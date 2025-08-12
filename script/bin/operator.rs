@@ -224,6 +224,8 @@ where
 
         let data_commitment_max = self.validate_contracts().await?;
 
+        tracing::info!("Data commitment max: {data_commitment_max}");
+
         // How often new tendermint blocks are created.
         let block_update_interval = get_block_update_interval();
 
@@ -249,6 +251,8 @@ where
         latest_blocks.into_iter().for_each(|(id, block)| {
             blocks_to_chain_id.entry(block).or_default().push(*id);
         });
+
+        tracing::info!("Blocks to chain id: {blocks_to_chain_id:?}");
 
         let mut handles = Vec::new();
         for (last_known_block, ids) in blocks_to_chain_id {

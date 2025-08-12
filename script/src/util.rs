@@ -26,6 +26,15 @@ pub async fn fetch_input_for_blobstream_proof(
     let (trusted_light_block, target_light_block) =
         get_light_blocks(client, trusted_block_height, target_block_height).await?;
 
+    tracing::info!(
+        "Trusted light block: {:?}",
+        trusted_light_block.signed_header.header().height
+    );
+    tracing::info!(
+        "Target light block: {:?}",
+        target_light_block.signed_header.header().height
+    );
+
     let headers =
         get_headers_in_range(client, trusted_block_height + 1, target_block_height - 1).await?;
 
@@ -99,7 +108,12 @@ pub async fn get_light_blocks(
     trusted_block_height: u64,
     target_block_height: u64,
 ) -> anyhow::Result<(LightBlock, LightBlock)> {
+    tracing::info!("Fetching light blocks for trusted block height: {trusted_block_height}");
+    tracing::info!("Fetching light blocks for target block height: {target_block_height}");
+
     let peer_id = client.fetch_peer_id().await?;
+
+    tracing::info!("peer id: {:?}", peer_id);
 
     let trusted_light_block = fetch_light_block(client, trusted_block_height, peer_id)
         .await
