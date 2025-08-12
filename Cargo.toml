@@ -32,7 +32,7 @@ sp1-sdk = { version = "5.2.1", default-features = false, features = [
     "network",
     "native-gnark",
 ] }
-sp1-zkvm = "5.2.1"
+sp1-zkvm = "5.0.0"
 
 [patch.crates-io]
 sha2-v0-9-9 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.9.9-sp1-4.0.0" }
