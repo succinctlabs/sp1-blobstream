@@ -10,7 +10,7 @@ use std::env;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::util::Retry;
+use crate::util::retry;
 
 #[derive(Debug, Clone)]
 pub struct TendermintRPCClient {
@@ -72,9 +72,12 @@ impl TendermintRPCClient {
                 .unwrap())
         }
 
-        inner(self)
-            .retry(DEFAULT_FAILURES_ALLOWED, DEFAULT_TENDERMINT_RPC_SLEEP_MS)
-            .await
+        retry(
+            || inner(self),
+            DEFAULT_FAILURES_ALLOWED,
+            DEFAULT_TENDERMINT_RPC_SLEEP_MS,
+        )
+        .await
     }
 
     /// Fetches a block by its hash.
@@ -100,9 +103,12 @@ impl TendermintRPCClient {
                 .context("Failed to parse block by hash response")
         }
 
-        inner(self, hash)
-            .retry(DEFAULT_FAILURES_ALLOWED, DEFAULT_TENDERMINT_RPC_SLEEP_MS)
-            .await
+        retry(
+            || inner(self, hash),
+            DEFAULT_FAILURES_ALLOWED,
+            DEFAULT_TENDERMINT_RPC_SLEEP_MS,
+        )
+        .await
     }
 
     /// Fetches the block by its height.
@@ -138,9 +144,12 @@ impl TendermintRPCClient {
                 .context("Failed to parse latest commit response")
         }
 
-        inner(self)
-            .retry(DEFAULT_FAILURES_ALLOWED, DEFAULT_TENDERMINT_RPC_SLEEP_MS)
-            .await
+        retry(
+            || inner(self),
+            DEFAULT_FAILURES_ALLOWED,
+            DEFAULT_TENDERMINT_RPC_SLEEP_MS,
+        )
+        .await
     }
 
     /// Fetches a commit for a specific block height.
@@ -166,9 +175,12 @@ impl TendermintRPCClient {
                 .context("Failed to parse commit response")
         }
 
-        inner(self, block_height)
-            .retry(DEFAULT_FAILURES_ALLOWED, DEFAULT_TENDERMINT_RPC_SLEEP_MS)
-            .await
+        retry(
+            || inner(self, block_height),
+            DEFAULT_FAILURES_ALLOWED,
+            DEFAULT_TENDERMINT_RPC_SLEEP_MS,
+        )
+        .await
     }
 
     /// Fetches validators for a specific block height.

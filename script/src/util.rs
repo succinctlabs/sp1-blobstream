@@ -11,7 +11,7 @@ use tendermint::{block::signed_header::SignedHeader, node::Id, validator::Set};
 use tendermint_light_client_verifier::types::{LightBlock, ValidatorSet};
 
 mod retry;
-pub use retry::{Retry, RetryFuture};
+pub use retry::retry;
 
 use crate::tendermint::{
     TendermintRPCClient, DEFAULT_FAILURES_ALLOWED, DEFAULT_TENDERMINT_RPC_CONCURRENCY,

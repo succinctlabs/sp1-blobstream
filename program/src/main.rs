@@ -119,9 +119,9 @@ pub fn main() {
                 "Not enough trust in the trusted header, voting power tally: {voting_power_tally:?}"
             );
         }
-        Verdict::Invalid(err) => panic!(
-            "Could not verify updating to target_block, error: {err:?}"
-        ),
+        Verdict::Invalid(err) => {
+            panic!("Could not verify updating to target_block, error: {err:?}")
+        }
     }
 
     // Compute the data commitment across the range.
