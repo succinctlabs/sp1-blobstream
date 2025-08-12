@@ -489,6 +489,7 @@ where
             .skip_simulation(true)
             .cycle_limit(10_000_000_000)
             .gas_limit(1_000_000_000)
+            .min_auction_period(10)
             .plonk()
             .timeout(Duration::from_secs(PROOF_TIMEOUT_SECONDS))
             .run_async()
