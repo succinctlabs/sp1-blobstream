@@ -116,13 +116,11 @@ pub fn main() {
         Verdict::Success => (),
         Verdict::NotEnoughTrust(voting_power_tally) => {
             panic!(
-                "Not enough trust in the trusted header, voting power tally: {:?}",
-                voting_power_tally
+                "Not enough trust in the trusted header, voting power tally: {voting_power_tally:?}"
             );
         }
         Verdict::Invalid(err) => panic!(
-            "Could not verify updating to target_block, error: {:?}",
-            err
+            "Could not verify updating to target_block, error: {err:?}"
         ),
     }
 

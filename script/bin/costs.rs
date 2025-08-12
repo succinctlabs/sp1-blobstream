@@ -118,7 +118,7 @@ async fn get_receipts_for_chain(
         }
     }
 
-    println!("Collected all transaction hashes for chain {}.", chain_id);
+    println!("Collected all transaction hashes for chain {chain_id}.");
 
     let mut all_transactions = Vec::new();
     // Get the receipts for the transactions.
@@ -134,7 +134,7 @@ async fn get_receipts_for_chain(
         }
     }
 
-    println!("Collected all receipts for chain {}.", chain_id);
+    println!("Collected all receipts for chain {chain_id}.");
 
     Ok(all_transactions
         .into_iter()
@@ -188,7 +188,7 @@ async fn main() -> Result<()> {
 
     let filename = format!("{}-{}-{}.csv", args.month, args.year, args.from_address);
     fs::create_dir_all("filtered_transactions")?;
-    let file = std::fs::File::create(format!("filtered_transactions/{}", filename))?;
+    let file = std::fs::File::create(format!("filtered_transactions/{filename}"))?;
     let mut csv_writer = csv::Writer::from_writer(file);
 
     println!(

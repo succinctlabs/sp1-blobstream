@@ -171,8 +171,7 @@ where
             .create_proof(current_block, target_block)
             .await
             .context(format!(
-                "Failed to create proof for block {} to block {}",
-                current_block, target_block
+                "Failed to create proof for block {current_block} to block {target_block}"
             ))?;
 
         // Relay to all the chains concurrently.
@@ -193,8 +192,7 @@ where
                         error!("Relaying proof failed to chain {}: {}", id, e);
 
                         Err(e.context(format!(
-                            "Failed to relay proof for block {} to block {}",
-                            current_block, target_block
+                            "Failed to relay proof for block {current_block} to block {target_block}"
                         )))
                     }
                 }
@@ -419,7 +417,7 @@ where
         futures::future::try_join_all(self.contracts.keys().map(|id| async move {
             self.check_vkey(*id)
                 .await
-                .map_err(|e| e.context(format!("Failed to check verifying key for chain {}", id)))
+                .map_err(|e| e.context(format!("Failed to check verifying key for chain {id}")))
         }))
         .await
         .context("Failed to check verifying key for all chains")?;

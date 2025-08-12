@@ -74,7 +74,7 @@ async fn send_kms_relay_request(args: &KMSRelayRequest) -> Result<KMSRelayRespon
 
     let client = reqwest::Client::new();
     let response = client
-        .post(format!("{}/relay", relayer_endpoint))
+        .post(format!("{relayer_endpoint}/relay"))
         .bearer_auth(api_key)
         .json(&args)
         .timeout(Duration::from_secs(30))
