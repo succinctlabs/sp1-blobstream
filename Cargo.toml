@@ -30,7 +30,6 @@ sha2 = "0.10"
 # sp1
 sp1-sdk = { version = "5.2.1", default-features = false, features = [
     "network",
-    "native-gnark",
 ] }
 sp1-zkvm = "5.0.0"
 
