@@ -302,6 +302,10 @@ pub fn is_valid_skip(
         {
             // Confirm that the validator has signed on target_block.
             for sig in target_block_commit.signatures.iter() {
+                if !sig.is_commit() {
+                    continue;
+                }
+
                 if let Some(validator_address) = sig.validator_address() {
                     if validator_address == target_block_validator.address {
                         // Add the shared voting power to the validator
