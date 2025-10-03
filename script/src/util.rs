@@ -78,21 +78,22 @@ pub async fn find_block_to_request(
 
     // If the consensus threshold is not met with the transition from the start block to the ideal block,
     // the first block to match the threshold will be used as the block to request.
+    let start_block_validators = client.fetch_validators(start_block + 1).await?;
+    let start_validator_set = Set::new(start_block_validators, None);
+
     let mut curr_end_block = ideal_block_to_request;
     loop {
         if curr_end_block - start_block == 1 {
             return Ok(Some(curr_end_block));
         }
-        let start_block_validators = client.fetch_validators(start_block).await?;
-        let start_validator_set = Set::new(start_block_validators, None);
         let target_block_validators = client.fetch_validators(curr_end_block).await?;
         let target_validator_set = Set::new(target_block_validators, None);
         let target_block_commit = client.fetch_commit(curr_end_block).await?;
 
         if is_valid_skip(
-            start_validator_set,
-            target_validator_set,
-            target_block_commit.result.signed_header.commit,
+            &start_validator_set,
+            &target_validator_set,
+            &target_block_commit.result.signed_header.commit,
         ) {
             return Ok(Some(curr_end_block));
         }
@@ -281,9 +282,9 @@ async fn fetch_light_block(
 
 /// Determines if a valid skip is possible between start_block and target_block.
 pub fn is_valid_skip(
-    start_validator_set: TendermintValidatorSet,
-    target_validator_set: TendermintValidatorSet,
-    target_block_commit: Commit,
+    start_validator_set: &TendermintValidatorSet,
+    target_validator_set: &TendermintValidatorSet,
+    target_block_commit: &Commit,
 ) -> bool {
     let threshold = 2_f64 / 3_f64;
     let mut shared_voting_power = 0_u64;
