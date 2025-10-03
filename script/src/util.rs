@@ -287,37 +287,34 @@ pub fn is_valid_skip(
     target_block_commit: &Commit,
 ) -> bool {
     let threshold = 2_f64 / 3_f64;
+
     let mut shared_voting_power = 0_u64;
-    let target_block_total_voting_power = target_validator_set.total_voting_power().value();
-    let start_block_validators = start_validator_set.validators();
-    let mut start_block_idx = 0;
-    let start_block_num_validators = start_block_validators.len();
+    let mut target_shared_voting_power = 0_u64;
 
-    // Exit if the threshold is met.
-    while (target_block_total_voting_power as f64) * threshold > shared_voting_power as f64
-        && start_block_idx < start_block_num_validators
-    {
-        if let Some(target_block_validator) =
-            target_validator_set.validator(start_block_validators[start_block_idx].address)
-        {
-            // Confirm that the validator has signed on target_block.
-            for sig in target_block_commit.signatures.iter() {
-                if !sig.is_commit() {
-                    continue;
-                }
+    for sig in target_block_commit.signatures.iter() {
+        if !sig.is_commit() {
+            continue;
+        }
 
-                if let Some(validator_address) = sig.validator_address() {
-                    if validator_address == target_block_validator.address {
-                        // Add the shared voting power to the validator
-                        shared_voting_power += target_block_validator.power.value();
-                    }
-                }
+        if let Some(validator_address) = sig.validator_address() {
+            if let Some(trusted_validator) = start_validator_set.validator(validator_address) {
+                shared_voting_power += trusted_validator.power();
+            }
+
+            if let Some(target_validator) = target_validator_set.validator(validator_address) {
+                target_shared_voting_power += target_validator.power();
             }
         }
-        start_block_idx += 1;
     }
 
-    (target_block_total_voting_power as f64) * threshold <= shared_voting_power as f64
+    let start_meets_threshold = (start_validator_set.total_voting_power().value() as f64)
+        * threshold
+        <= shared_voting_power as f64;
+    let target_meets_threshold = (target_validator_set.total_voting_power().value() as f64)
+        * threshold
+        <= target_shared_voting_power as f64;
+
+    start_meets_threshold && target_meets_threshold
 }
 
 /// Fetches a header hash for a specific block height.
