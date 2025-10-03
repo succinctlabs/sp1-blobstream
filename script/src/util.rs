@@ -78,21 +78,22 @@ pub async fn find_block_to_request(
 
     // If the consensus threshold is not met with the transition from the start block to the ideal block,
     // the first block to match the threshold will be used as the block to request.
+    let start_block_validators = client.fetch_validators(start_block + 1).await?;
+    let start_validator_set = Set::new(start_block_validators, None);
+
     let mut curr_end_block = ideal_block_to_request;
     loop {
         if curr_end_block - start_block == 1 {
             return Ok(Some(curr_end_block));
         }
-        let start_block_validators = client.fetch_validators(start_block).await?;
-        let start_validator_set = Set::new(start_block_validators, None);
         let target_block_validators = client.fetch_validators(curr_end_block).await?;
         let target_validator_set = Set::new(target_block_validators, None);
         let target_block_commit = client.fetch_commit(curr_end_block).await?;
 
         if is_valid_skip(
-            start_validator_set,
-            target_validator_set,
-            target_block_commit.result.signed_header.commit,
+            &start_validator_set,
+            &target_validator_set,
+            &target_block_commit.result.signed_header.commit,
         ) {
             return Ok(Some(curr_end_block));
         }
@@ -281,38 +282,39 @@ async fn fetch_light_block(
 
 /// Determines if a valid skip is possible between start_block and target_block.
 pub fn is_valid_skip(
-    start_validator_set: TendermintValidatorSet,
-    target_validator_set: TendermintValidatorSet,
-    target_block_commit: Commit,
+    start_validator_set: &TendermintValidatorSet,
+    target_validator_set: &TendermintValidatorSet,
+    target_block_commit: &Commit,
 ) -> bool {
     let threshold = 2_f64 / 3_f64;
-    let mut shared_voting_power = 0_u64;
-    let target_block_total_voting_power = target_validator_set.total_voting_power().value();
-    let start_block_validators = start_validator_set.validators();
-    let mut start_block_idx = 0;
-    let start_block_num_validators = start_block_validators.len();
 
-    // Exit if the threshold is met.
-    while (target_block_total_voting_power as f64) * threshold > shared_voting_power as f64
-        && start_block_idx < start_block_num_validators
-    {
-        if let Some(target_block_validator) =
-            target_validator_set.validator(start_block_validators[start_block_idx].address)
-        {
-            // Confirm that the validator has signed on target_block.
-            for sig in target_block_commit.signatures.iter() {
-                if let Some(validator_address) = sig.validator_address() {
-                    if validator_address == target_block_validator.address {
-                        // Add the shared voting power to the validator
-                        shared_voting_power += target_block_validator.power.value();
-                    }
-                }
+    let mut shared_voting_power = 0_u64;
+    let mut target_shared_voting_power = 0_u64;
+
+    for sig in target_block_commit.signatures.iter() {
+        if !sig.is_commit() {
+            continue;
+        }
+
+        if let Some(validator_address) = sig.validator_address() {
+            if let Some(trusted_validator) = start_validator_set.validator(validator_address) {
+                shared_voting_power += trusted_validator.power();
+            }
+
+            if let Some(target_validator) = target_validator_set.validator(validator_address) {
+                target_shared_voting_power += target_validator.power();
             }
         }
-        start_block_idx += 1;
     }
 
-    (target_block_total_voting_power as f64) * threshold <= shared_voting_power as f64
+    let start_meets_threshold = (start_validator_set.total_voting_power().value() as f64)
+        * threshold
+        <= shared_voting_power as f64;
+    let target_meets_threshold = (target_validator_set.total_voting_power().value() as f64)
+        * threshold
+        <= target_shared_voting_power as f64;
+
+    start_meets_threshold && target_meets_threshold
 }
 
 /// Fetches a header hash for a specific block height.
