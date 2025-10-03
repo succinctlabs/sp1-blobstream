@@ -285,7 +285,7 @@ pub fn is_valid_skip(
     target_validator_set: TendermintValidatorSet,
     target_block_commit: Commit,
 ) -> bool {
-    let threshold = 1_f64 / 3_f64;
+    let threshold = 2_f64 / 3_f64;
     let mut shared_voting_power = 0_u64;
     let target_block_total_voting_power = target_validator_set.total_voting_power().value();
     let start_block_validators = start_validator_set.validators();
