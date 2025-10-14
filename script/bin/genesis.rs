@@ -10,7 +10,7 @@
 use clap::Parser;
 use sp1_blobstream_script::util::*;
 use sp1_blobstream_script::TendermintRPCClient;
-use sp1_sdk::{HashableKey, Prover, ProverClient};
+use sp1_sdk::{HashableKey, MockProver, Prover, ProvingKey};
 use std::env;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -36,8 +36,12 @@ pub async fn main() {
     let data_fetcher = TendermintRPCClient::default();
     let args = GenesisArgs::parse();
 
-    let client = ProverClient::builder().mock().build();
-    let (_pk, vk) = client.setup(BLOBSTREAMX_ELF);
+    let client = MockProver::new().await;
+    let pk = client
+        .setup(sp1_sdk::Elf::Static(BLOBSTREAMX_ELF))
+        .await
+        .expect("Failed to setup prover");
+    let vk = pk.verifying_key().clone();
 
     if let Some(block) = args.block {
         let header_hash = fetch_header_hash(&data_fetcher, block)

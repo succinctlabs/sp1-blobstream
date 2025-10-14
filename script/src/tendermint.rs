@@ -160,7 +160,7 @@ impl TendermintRPCClient {
         ) -> anyhow::Result<CommitResponse> {
             let url = format!("{}/commit", client.url);
 
-            client
+            let raw = client
                 .client
                 .get(url)
                 .query(&[
@@ -169,8 +169,11 @@ impl TendermintRPCClient {
                 ])
                 .send()
                 .await
-                .context("Failed to fetch commit")?
-                .json::<CommitResponse>()
+                .context("Failed to fetch commit")?;
+
+            tracing::info!("raw: {:?}", raw);
+
+            raw.json::<CommitResponse>()
                 .await
                 .context("Failed to parse commit response")
         }
