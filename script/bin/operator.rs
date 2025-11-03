@@ -489,8 +489,18 @@ where
             .prove(&self.pk, &stdin)
             .strategy(FulfillmentStrategy::Auction)
             .skip_simulation(true)
-            .cycle_limit(10_000_000_000)
-            .gas_limit(1_000_000_000)
+            .cycle_limit(
+                env::var("PROVER_CYCLE_LIMIT")
+                    .ok()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(10_000_000_000),
+            )
+            .gas_limit(
+                env::var("PROVER_GAS_LIMIT")
+                    .ok()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(10_000_000_000),
+            )
             .min_auction_period(10)
             .plonk()
             .timeout(Duration::from_secs(PROOF_TIMEOUT_SECONDS))
