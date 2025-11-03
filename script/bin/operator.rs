@@ -491,15 +491,15 @@ where
             .skip_simulation(true)
             .cycle_limit(
                 env::var("PROVER_CYCLE_LIMIT")
-                    .ok()
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(10_000_000_000),
+                    .expect("PROVER_CYCLE_LIMIT not set")
+                    .parse::<u64>()
+                    .expect("Failed to parse PROVER_CYCLE_LIMIT"),
             )
             .gas_limit(
                 env::var("PROVER_GAS_LIMIT")
-                    .ok()
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(10_000_000_000),
+                    .expect("PROVER_GAS_LIMIT not set")
+                    .parse::<u64>()
+                    .expect("Failed to parse PROVER_GAS_LIMIT"),
             )
             .min_auction_period(10)
             .plonk()
