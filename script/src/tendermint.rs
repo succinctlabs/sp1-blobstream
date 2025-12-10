@@ -29,10 +29,10 @@ impl Default for TendermintRPCClient {
 pub const DEFAULT_TENDERMINT_RPC_TIMEOUT_SECS: u64 = 20;
 
 /// The default concurrency for Tendermint RPC requests.
-pub const DEFAULT_TENDERMINT_RPC_CONCURRENCY: usize = 5;
+pub const DEFAULT_TENDERMINT_RPC_CONCURRENCY: usize = 20;
 
 /// The default sleep duration for Tendermint RPC requests in milliseconds.
-pub const DEFAULT_TENDERMINT_RPC_SLEEP_MS: Duration = Duration::from_millis(1250);
+pub const DEFAULT_TENDERMINT_RPC_SLEEP_MS: Duration = Duration::from_millis(500);
 
 /// The maximum number of failures allowed when retrying a Tendermint RPC request.
 pub const DEFAULT_FAILURES_ALLOWED: u32 = 20;
@@ -126,6 +126,19 @@ impl TendermintRPCClient {
             .json::<BlockResponse>()
             .await
             .context("Failed to parse block by height response")
+    }
+
+    /// Fetches the header by its height.
+    pub async fn fetch_header_by_height(&self, height: u64) -> anyhow::Result<HeaderResponse> {
+        let url = format!("{}/header?height={}", self.url, height);
+        self.client
+            .get(url)
+            .send()
+            .await
+            .context("Failed to fetch header by height")?
+            .json::<HeaderResponse>()
+            .await
+            .context("Failed to parse header by height response")
     }
 
     /// Fetches the latest commit from the Tendermint node.
