@@ -51,7 +51,7 @@ const PROOF_TIMEOUT_SECONDS: u64 = 60 * 30;
 const NUM_RELAY_RETRIES: u32 = 3;
 
 /// The timeout for the operator to run.
-const LOOP_TIMEOUT_MINS: u64 = PROOF_TIMEOUT_SECONDS * 2;
+const LOOP_TIMEOUT_MINS: u64 = PROOF_TIMEOUT_SECONDS * 4;
 
 /// The number of confirmations to wait for.
 const NUM_CONFIRMATIONS: u64 = 3;
