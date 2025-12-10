@@ -34,8 +34,8 @@ pub const DEFAULT_TENDERMINT_RPC_CONCURRENCY: usize = 5;
 /// The default sleep duration for Tendermint RPC requests in milliseconds.
 pub const DEFAULT_TENDERMINT_RPC_SLEEP_MS: Duration = Duration::from_millis(1250);
 
-/// The maximum number of failures allowed when t
-pub const DEFAULT_FAILURES_ALLOWED: u32 = 5;
+/// The maximum number of failures allowed when retrying a Tendermint RPC request.
+pub const DEFAULT_FAILURES_ALLOWED: u32 = 20;
 
 impl TendermintRPCClient {
     pub fn new(url: String) -> Self {

@@ -1,0 +1,17 @@
+{
+  "lib/Succinctx": {
+    "rev": "71f2b3aa395f4e7f824e35f89e75d4a368f963b8"
+  },
+  "lib/blobstream-contracts": {
+    "rev": "e88c524fd8edd41bda804ac24042191a396cef65"
+  },
+  "lib/openzeppelin-contracts": {
+    "rev": "4764ea50750d8bda9096e833706beba86918b163"
+  },
+  "lib/openzeppelin-contracts-upgradeable": {
+    "rev": "326456bf188686bf376802e981cf6f58d767f0b5"
+  },
+  "lib/sp1-contracts": {
+    "rev": "2fcbf9257330ebe13df4cccd475b642812c03944"
+  }
+}
