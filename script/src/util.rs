@@ -133,6 +133,11 @@ pub async fn get_block(client: &TendermintRPCClient, height: u64) -> anyhow::Res
     Ok(block.result.block)
 }
 
+pub async fn get_header(client: &TendermintRPCClient, height: u64) -> anyhow::Result<Header> {
+    let block = client.fetch_header_by_height(height).await?;
+    Ok(block.result.header)
+}
+
 /// Retrieves the headers for the given range of block heights. Inclusive of start and end.
 pub async fn get_headers_in_range(
     client: &TendermintRPCClient,
@@ -165,7 +170,7 @@ pub async fn get_headers_in_range(
 
         // Chunk the range into batches of DEFAULT_TENDERMINT_RPC_CONCURRENCY.
         let batch_headers: Vec<anyhow::Result<Header>> = (next_batch_start..batch_end)
-            .map(|height| async move { Ok(get_block(client, height).await?.header) })
+            .map(|height| async move { get_header(client, height).await })
             .collect::<FuturesOrdered<_>>()
             .collect::<Vec<_>>()
             .await;
@@ -179,7 +184,7 @@ pub async fn get_headers_in_range(
                 failures += 1;
             }
 
-            tracing::debug!(
+            tracing::warn!(
                 "Got errors fetching headers, successful header count: {}",
                 err
             );

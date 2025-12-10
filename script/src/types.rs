@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use tendermint::{
-    block::{self, signed_header::SignedHeader},
+    block::{self, signed_header::SignedHeader, Header},
     validator::Info,
     Block,
 };
@@ -30,6 +30,16 @@ pub struct BlockResponse {
 pub struct BlockWrapper {
     pub block_id: Option<block::Id>,
     pub block: Block,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HeaderResponse {
+    pub result: HeaderWrapper,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HeaderWrapper {
+    pub header: Header,
 }
 
 #[derive(Debug, Deserialize)]
