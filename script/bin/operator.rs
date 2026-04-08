@@ -561,15 +561,9 @@ where
 /////// Env Helpers ///////
 
 fn get_loop_interval_mins() -> u64 {
-    let loop_interval_mins_env = env::var("LOOP_INTERVAL_MINS");
-    let mut loop_interval_mins = 60;
-    if loop_interval_mins_env.is_ok() {
-        loop_interval_mins = loop_interval_mins_env
-            .unwrap()
-            .parse::<u64>()
-            .expect("invalid LOOP_INTERVAL_MINS");
-    }
-    loop_interval_mins
+    env::var("LOOP_INTERVAL_MINS")
+        .map(|v| v.parse().expect("invalid LOOP_INTERVAL_MINS"))
+        .unwrap_or(60)
 }
 
 fn get_block_update_interval() -> u64 {
