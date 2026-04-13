@@ -12,8 +12,8 @@ use sp1_blobstream_script::util::{fetch_input_for_blobstream_proof, find_block_t
 use sp1_blobstream_script::TendermintRPCClient;
 use sp1_blobstream_script::{relay, TENDERMINT_ELF};
 use sp1_sdk::{
-    network::FulfillmentStrategy, HashableKey, NetworkProver, Prover, ProverClient,
-    SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
+    network::FulfillmentStrategy, Elf, HashableKey, NetworkProver, ProveRequest, Prover,
+    ProverClient, ProvingKey, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
 };
 use std::time::Duration;
 use std::{collections::HashMap, env, sync::Arc};
@@ -479,14 +479,14 @@ where
         // If the SP1_PROVER environment variable is set to "cpu", use the CPU prover.
         if let Ok(prover_type) = env::var("SP1_PROVER") {
             if prover_type == "cpu" {
-                let prover_client = ProverClient::builder().cpu().build();
-                let proof = prover_client.prove(&self.pk, &stdin).plonk().run()?;
+                let prover_client = ProverClient::builder().cpu().build().await;
+                let proof = prover_client.prove(&self.pk, stdin).plonk().await?;
                 return Ok(proof);
             }
         }
 
         self.network_prover
-            .prove(&self.pk, &stdin)
+            .prove(&self.pk, stdin)
             .strategy(FulfillmentStrategy::Auction)
             .skip_simulation(true)
             .cycle_limit(
@@ -504,7 +504,6 @@ where
             .min_auction_period(10)
             .plonk()
             .timeout(Duration::from_secs(PROOF_TIMEOUT_SECONDS))
-            .run_async()
             .await
     }
 
@@ -643,8 +642,9 @@ async fn run_with_wallet(config: Vec<ChainConfig>) {
     let key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY not set");
     let signer: PrivateKeySigner = key.parse().expect("Failed to parse PRIVATE_KEY");
 
-    let prover = ProverClient::builder().network().build();
-    let (pk, vk) = prover.setup(TENDERMINT_ELF);
+    let prover = ProverClient::builder().network().build().await;
+    let pk = prover.setup(Elf::Static(TENDERMINT_ELF)).await.unwrap();
+    let vk = pk.verifying_key().clone();
 
     let client = TendermintRPCClient::default();
 
@@ -666,8 +666,9 @@ async fn run_with_wallet(config: Vec<ChainConfig>) {
 }
 
 async fn run_with_kms_relayer(config: Vec<ChainConfig>) {
-    let prover = ProverClient::builder().network().build();
-    let (pk, vk) = prover.setup(TENDERMINT_ELF);
+    let prover = ProverClient::builder().network().build().await;
+    let pk = prover.setup(Elf::Static(TENDERMINT_ELF)).await.unwrap();
+    let vk = pk.verifying_key().clone();
 
     let client = TendermintRPCClient::default();
 
