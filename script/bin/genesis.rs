@@ -10,7 +10,7 @@
 use clap::Parser;
 use sp1_blobstream_script::util::*;
 use sp1_blobstream_script::TendermintRPCClient;
-use sp1_sdk::{HashableKey, Prover, ProverClient};
+use sp1_sdk::{Elf, HashableKey, Prover, ProverClient, ProvingKey};
 use std::env;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -36,8 +36,8 @@ pub async fn main() {
     let data_fetcher = TendermintRPCClient::default();
     let args = GenesisArgs::parse();
 
-    let client = ProverClient::builder().mock().build();
-    let (_pk, vk) = client.setup(BLOBSTREAMX_ELF);
+    let client = ProverClient::builder().mock().build().await;
+    let pk = client.setup(Elf::Static(BLOBSTREAMX_ELF)).await.unwrap();
 
     if let Some(block) = args.block {
         let header_hash = fetch_header_hash(&data_fetcher, block)
@@ -48,7 +48,7 @@ pub async fn main() {
             "\nGENESIS_HEIGHT={:?}\nGENESIS_HEADER={}\nSP1_BLOBSTREAM_PROGRAM_VKEY={}\n",
             block,
             header_hash.to_string(),
-            vk.bytes32(),
+            pk.verifying_key().bytes32(),
         );
     } else {
         let latest_block_height = get_latest_block_height(&data_fetcher)
@@ -63,7 +63,7 @@ pub async fn main() {
             "\nGENESIS_HEIGHT={:?}\nGENESIS_HEADER={}\nSP1_BLOBSTREAM_PROGRAM_VKEY={}\n",
             latest_block_height,
             header_hash.to_string(),
-            vk.bytes32(),
+            pk.verifying_key().bytes32(),
         );
     }
 }
