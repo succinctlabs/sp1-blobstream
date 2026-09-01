@@ -1,6 +1,6 @@
 # Quick Start
 
-This guide will walk you through deploying the SP1 Blobstream contract and running the operator.
+This guide explains how to deploy the SP1 Blobstream contract and run the operator.
 
 ## Deploying SP1 Blobstream
 
@@ -11,8 +11,8 @@ This guide will walk you through deploying the SP1 Blobstream contract and runni
     ```shell
     cd script
 
-    # Example with Celestia Mocha-4 Testnet.
-    TENDERMINT_RPC_URL=https://rpc.lunaroasis.net/ cargo run --bin genesis --release
+    # Use the RPC endpoint for the Tendermint source chain.
+    TENDERMINT_RPC_URL="<TENDERMINT_RPC_URL>" cargo run --bin genesis --release
     ```
 
 2. Add the genesis parameters to `/contracts/.env` mirroring `contracts/.env.example`.
@@ -45,9 +45,9 @@ This guide will walk you through deploying the SP1 Blobstream contract and runni
     0: address <SP1_BLOBSTREAM_ADDRESS>
     ```
 
-    This will be used when you run the operator in step 5.
+    This will be used when you run the operator in step 6.
 
-5. Export your SP1 Prover Network configuration
+5. Export your SP1 Prover Network configuration.
 
     ```shell
     # Export the PRIVATE_KEY you will use to relay proofs.
@@ -65,9 +65,12 @@ This guide will walk you through deploying the SP1 Blobstream contract and runni
 
 6. Run the SP1 Blobstream operator to update the LC continuously.
 
-    ```
+    ```shell
     cd ../script
-    
-    TENDERMINT_RPC_URL=https://rpc.celestia-mocha.com/ CHAIN_ID=11155111 RPC_URL=https://ethereum-sepolia.publicnode.com/
-    CONTRACT_ADDRESS=<SP1_BLOBSTREAM_ADDRESS> cargo run --bin operator --release
+
+    TENDERMINT_RPC_URL="<TENDERMINT_RPC_URL>" \
+    RPC_URL="<DESTINATION_CHAIN_RPC_URL>" \
+    CONTRACT_ADDRESS="<SP1_BLOBSTREAM_ADDRESS>" \
+    SIGNER_MODE=local \
+    cargo run --bin operator --release
     ```
